@@ -1,9 +1,9 @@
 import type { ChangeClassification, Freshness } from "@/lib/apiTypes";
 
 const CLASSIFICATION_STYLES: Record<ChangeClassification, string> = {
-  SIGNIFICANT: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-  NOTABLE: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  NORMAL: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+  SIGNIFICANT: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-200",
+  NOTABLE: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
+  NORMAL: "bg-stone-100 text-stone-500 ring-1 ring-inset ring-stone-200",
 };
 
 const CLASSIFICATION_LABEL: Record<ChangeClassification, string> = {
@@ -22,14 +22,18 @@ export function ClassificationBadge({ classification }: { classification: Change
   );
 }
 
+// Deliberately restrained: green only for genuinely live data, neutral
+// stone for the common closed-market/last-close state, amber for anything
+// that warrants a second look (stale/static), never red — none of these
+// are errors, just different degrees of "how current is this."
 const FRESHNESS_STYLES: Record<Freshness, string> = {
-  LIVE: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-  DELAYED: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300",
-  CLOSED: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  STALE: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300",
-  CACHED: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300",
-  STATIC: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300",
-  UNAVAILABLE: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400",
+  LIVE: "bg-green-50 text-green-700 ring-1 ring-inset ring-green-200",
+  DELAYED: "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200",
+  CLOSED: "bg-stone-100 text-stone-600 ring-1 ring-inset ring-stone-200",
+  STALE: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
+  CACHED: "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200",
+  STATIC: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
+  UNAVAILABLE: "bg-stone-100 text-stone-500 ring-1 ring-inset ring-stone-200",
 };
 
 const FRESHNESS_LABEL: Record<Freshness, string> = {

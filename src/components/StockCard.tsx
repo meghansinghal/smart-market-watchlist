@@ -1,92 +1,102 @@
 "use client";
 
 import Link from "next/link";
-import type { DemoScenario, SymbolBriefJSON } from "@/lib/apiTypes";
+import type { SymbolBriefJSON } from "@/lib/apiTypes";
 import { formatObservationTimestamp, formatPct, formatPrice } from "@/lib/format";
 import { ClassificationBadge, FreshnessBadge } from "@/components/Badge";
-import { DemoScenarioMenu } from "@/components/DemoScenarioMenu";
+import { Evidence } from "@/components/Evidence";
 
+/** The full-detail "worth a look" card — reserved for SIGNIFICANT/NOTABLE
+ * stocks. Normal/unchanged stocks use CompactStockRow instead, so
+ * attention is spent where something actually happened. */
 export function StockCard({
   brief,
-  demoScenario,
   onRemove,
-  onDemoChanged,
 }: {
   brief: SymbolBriefJSON;
-  demoScenario: DemoScenario;
   onRemove: (symbol: string) => void;
-  onDemoChanged: () => void;
 }) {
-  const { symbol, observation, unavailableMessage, change, explanation } = brief;
+  const { symbol, observation, change, explanation } = brief;
+  const pct = change?.pctChangeSinceCheckpoint ?? null;
+  // buildReasons() orders reasons by priority, so the first bullet is the
+  // primary driver of the classification — a single "why this matters"
+  // line, rather than repeating the full reasons list already covered by
+  // the evidence tiles below.
+  const whyThisMatters = explanation?.bullets[0] ?? explanation?.headline ?? null;
 
   return (
     <div
       data-testid={`stock-card-${symbol}`}
-      className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/50"
+      className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link href={`/stock/${encodeURIComponent(symbol)}`} className="font-semibold hover:underline">
-            {symbol}
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/stock/${encodeURIComponent(symbol)}`}
+              className="font-semibold text-stone-900 hover:underline"
+            >
+              {symbol}
+            </Link>
+            {change?.classification && <ClassificationBadge classification={change.classification} />}
+          </div>
           {observation && (
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
-              <span className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-                {formatPrice(observation.price)}
-              </span>
-              {change?.pctChangeSinceCheckpoint !== undefined && change?.pctChangeSinceCheckpoint !== null && (
-                <span
-                  className={
-                    change.pctChangeSinceCheckpoint > 0
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : change.pctChangeSinceCheckpoint < 0
-                        ? "text-red-600 dark:text-red-400"
-                        : ""
-                  }
-                >
-                  {formatPct(change.pctChangeSinceCheckpoint)}
-                </span>
-              )}
-              <FreshnessBadge freshness={observation.freshness} />
-              <span className="text-xs text-zinc-400">
-                {formatObservationTimestamp(observation.observedAt, observation.freshness)}
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              <span className="text-lg font-semibold text-stone-900">{formatPrice(observation.price)}</span>
+              <span
+                className={
+                  pct !== null && pct > 0
+                    ? "font-medium text-green-700"
+                    : pct !== null && pct < 0
+                      ? "font-medium text-red-700"
+                      : "text-stone-500"
+                }
+              >
+                {pct === 0 ? "No change" : formatPct(pct)}
               </span>
             </div>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {change?.classification && <ClassificationBadge classification={change.classification} />}
-          <button
-            onClick={() => onRemove(symbol)}
-            aria-label="Remove from watchlist"
-            title="Remove from watchlist"
-            className="rounded-md px-1.5 py-0.5 text-sm text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-          >
-            ✕
-          </button>
-        </div>
+        <button
+          onClick={() => onRemove(symbol)}
+          aria-label="Remove from watchlist"
+          title="Remove from watchlist"
+          className="shrink-0 rounded-md px-1.5 py-0.5 text-sm text-stone-400 hover:bg-stone-100 hover:text-stone-700"
+        >
+          ✕
+        </button>
       </div>
 
-      {unavailableMessage ? (
-        <p className="mt-3 text-sm text-zinc-500">{unavailableMessage}</p>
-      ) : explanation ? (
+      {whyThisMatters && (
         <div className="mt-3">
-          <p className="text-sm text-zinc-700 dark:text-zinc-300">{explanation.headline}</p>
-          {explanation.bullets.length > 0 && (
-            <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs text-zinc-500">
-              {explanation.bullets.map((bullet, i) => (
-                <li key={i}>{bullet}</li>
-              ))}
-            </ul>
-          )}
+          <div className="text-[10px] font-medium tracking-wide text-stone-400 uppercase">
+            Why this matters
+          </div>
+          <p className="mt-0.5 text-sm text-stone-700">{whyThisMatters}</p>
         </div>
-      ) : null}
+      )}
 
-      <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-2 dark:border-zinc-800">
-        <Link href={`/stock/${encodeURIComponent(symbol)}`} className="text-xs text-zinc-500 hover:underline">
+      {change?.scores && (
+        <div className="mt-3">
+          <Evidence
+            scores={change.scores}
+            pctChangeSinceCheckpoint={pct}
+            benchmarkSymbol={change.benchmarkSymbol}
+            reasons={change.reasons}
+          />
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center justify-between border-t border-stone-100 pt-2">
+        <Link href={`/stock/${encodeURIComponent(symbol)}`} className="text-xs text-stone-500 hover:underline">
           View details →
         </Link>
-        <DemoScenarioMenu symbol={symbol} current={demoScenario} onChanged={onDemoChanged} />
+        {observation && (
+          <div className="flex items-center gap-2 text-xs text-stone-400">
+            <FreshnessBadge freshness={observation.freshness} />
+            <span>{formatObservationTimestamp(observation.observedAt, observation.freshness)}</span>
+          </div>
+        )}
       </div>
     </div>
   );

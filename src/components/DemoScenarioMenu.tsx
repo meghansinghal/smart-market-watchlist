@@ -40,8 +40,9 @@ export function DemoScenarioMenu({
       value={current}
       onChange={handleChange}
       disabled={pending}
-      title="Demo scenario for this symbol"
-      className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-600 outline-none disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+      data-testid={`demo-scenario-${symbol}`}
+      title={`Demo scenario for ${symbol}`}
+      className="rounded-md border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 outline-none disabled:opacity-50"
     >
       {SCENARIOS.map((s) => (
         <option key={s.value} value={s.value}>

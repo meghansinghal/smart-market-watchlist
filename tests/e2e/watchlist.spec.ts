@@ -31,8 +31,10 @@ test.describe("Watchlist dashboard", () => {
   });
 
   test("stock detail page shows a price chart", async ({ page }) => {
-    await page.goto("/");
-    await page.getByRole("link", { name: "View details →" }).first().click();
+    // Navigate directly rather than clicking through — the symbol may
+    // render as a full "worth a look" card or a compact row depending on
+    // its classification, and either way its symbol text links here.
+    await page.goto("/stock/INFY.NS");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByText("Last 20 trading days")).toBeVisible();
     await expect(page.locator("svg.recharts-surface")).toBeVisible();
@@ -46,8 +48,10 @@ test.describe("Watchlist dashboard", () => {
     await page.goto("/");
     await expect(page.getByTestId("stock-card-INFY.NS")).toBeVisible();
 
-    const infyCard = page.getByTestId("stock-card-INFY.NS");
-    await infyCard.getByRole("combobox").selectOption("PRICE_SHOCK");
+    // Demo controls live in the collapsed "For presenters" panel now.
+    await page.getByRole("button", { name: /for presenters/i }).click();
+    const scenarioSelect = page.getByTestId("demo-scenario-INFY.NS");
+    await scenarioSelect.selectOption("PRICE_SHOCK");
 
     await page.reload();
 
@@ -56,6 +60,7 @@ test.describe("Watchlist dashboard", () => {
     ).toBeVisible();
 
     // Clean up so this scenario doesn't leak into other tests/runs.
-    await infyCard.getByRole("combobox").selectOption("NORMAL_MARKET");
+    await page.getByRole("button", { name: /for presenters/i }).click();
+    await page.getByTestId("demo-scenario-INFY.NS").selectOption("NORMAL_MARKET");
   });
 });

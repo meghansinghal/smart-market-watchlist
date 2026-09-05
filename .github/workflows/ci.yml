@@ -41,6 +41,11 @@ jobs:
 
       - run: npx prisma migrate deploy
 
+      # The e2e suite expects the default watchlist (INFY.NS etc.) to
+      # exist — CI's Postgres container starts completely empty, unlike a
+      # local dev DB that's already been seeded once and stays that way.
+      - run: npm run db:seed
+
       - run: npm run typecheck
 
       - run: npm run lint
