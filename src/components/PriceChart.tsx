@@ -58,6 +58,14 @@ export function PriceChart({
       <div className="h-7 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+            {/* Without an explicit domain, the y-axis defaults toward
+             * starting at 0 — for a price series that barely varies
+             * relative to its absolute value, that compresses real
+             * day-to-day movement into a nearly flat line. Fitting the
+             * domain tightly to the data's own range (hidden — this is
+             * still just a trend line, not a readable axis) is what
+             * actually makes the shape visible. */}
+            <YAxis hide domain={["dataMin", "dataMax"]} />
             <Line
               type="monotone"
               dataKey="close"
@@ -97,9 +105,9 @@ export function PriceChart({
 
   return (
     <div>
-      <div className="h-64 w-full">
+      <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={highlightedData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+          <LineChart data={highlightedData} margin={{ top: 8, right: 16, bottom: 4, left: 4 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-stone-200" />
             <XAxis
               dataKey="date"

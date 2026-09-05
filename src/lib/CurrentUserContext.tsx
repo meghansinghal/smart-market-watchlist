@@ -18,6 +18,7 @@ function readStoredUserId(): string | null {
 
 interface CurrentUserContextValue {
   userId: string | null;
+  userName: string | null;
   setUserId: (id: string) => void;
 }
 
@@ -41,6 +42,7 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   const { data: storedUserId } = useSWR(SWR_KEY, readStoredUserId, { fallbackData: null });
   const { data: usersData } = useSWR("users", apiClient.getUsers);
   const userId = storedUserId ?? usersData?.users[0]?.id ?? null;
+  const userName = usersData?.users.find((u) => u.id === userId)?.name ?? null;
 
   function setUserId(id: string) {
     try {
@@ -52,7 +54,7 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <CurrentUserContext.Provider value={{ userId, setUserId }}>
+    <CurrentUserContext.Provider value={{ userId, userName, setUserId }}>
       {children}
     </CurrentUserContext.Provider>
   );

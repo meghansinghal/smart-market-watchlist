@@ -7,12 +7,9 @@ import { timeOfDayGreeting } from "@/lib/greeting";
 import { formatRelativeTime } from "@/lib/format";
 import { useCommitCheckpoints } from "@/lib/useCommitCheckpoints";
 import { StockCard } from "@/components/StockCard";
-import { UserSwitcher } from "@/components/UserSwitcher";
 
 export default function BriefPage() {
-  const { userId, setUserId } = useCurrentUser();
-  const { data: usersData } = useSWR("users", apiClient.getUsers);
-  const users = usersData?.users ?? [];
+  const { userId, userName } = useCurrentUser();
 
   const {
     data: dashboard,
@@ -53,24 +50,24 @@ export default function BriefPage() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10 sm:px-10">
       <header className="flex items-start justify-between gap-4">
-        <h1 className="text-3xl font-bold tracking-tight text-stone-900">{greeting ?? "Hello"}</h1>
-        <div className="mt-1 flex shrink-0 flex-col items-end gap-2">
-          <UserSwitcher users={users} currentUserId={userId} onChange={setUserId} />
-          {dashboard && (
+        <h1 className="text-3xl font-bold tracking-tight text-stone-900">
+          {greeting ?? "Hello"}
+          {userName ? `, ${userName}` : ""}
+        </h1>
+        {dashboard && (
+          <span
+            className={`mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+              dashboard.marketOpen
+                ? "bg-green-50 text-green-700 ring-1 ring-inset ring-green-200"
+                : "bg-stone-100 text-stone-500 ring-1 ring-inset ring-stone-200"
+            }`}
+          >
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-                dashboard.marketOpen
-                  ? "bg-green-50 text-green-700 ring-1 ring-inset ring-green-200"
-                  : "bg-stone-100 text-stone-500 ring-1 ring-inset ring-stone-200"
-              }`}
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${dashboard.marketOpen ? "bg-green-500" : "bg-stone-400"}`}
-              />
-              Market {dashboard.marketOpen ? "open" : "closed"}
-            </span>
-          )}
-        </div>
+              className={`h-1.5 w-1.5 rounded-full ${dashboard.marketOpen ? "bg-green-500" : "bg-stone-400"}`}
+            />
+            Market {dashboard.marketOpen ? "open" : "closed"}
+          </span>
+        )}
       </header>
 
       {isLoading && <p className="text-sm text-stone-500">Loading your brief…</p>}

@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import useSWR from "swr";
+import { apiClient } from "@/lib/apiClient";
+import { useCurrentUser } from "@/lib/CurrentUserContext";
 import { MarketSimulationModal } from "@/components/MarketSimulationModal";
+import { UserSwitcher } from "@/components/UserSwitcher";
 
 function NavLink({ href, label, icon, active }: { href: string; label: string; icon: ReactNode; active: boolean }) {
   return (
@@ -28,6 +32,9 @@ function NavLink({ href, label, icon, active }: { href: string; label: string; i
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [simulationOpen, setSimulationOpen] = useState(false);
+  const { userId, setUserId } = useCurrentUser();
+  const { data: usersData } = useSWR("users", apiClient.getUsers);
+  const users = usersData?.users ?? [];
 
   return (
     <div className="flex min-h-screen w-full">
@@ -66,7 +73,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           />
         </nav>
 
-        <div className="mt-auto border-t border-stone-200 pt-3">
+        <div className="mt-auto flex flex-col gap-5 border-t border-stone-200 pt-4">
+          <UserSwitcher users={users} currentUserId={userId} onChange={setUserId} />
           <button
             onClick={() => setSimulationOpen(true)}
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-stone-400 hover:bg-stone-100 hover:text-stone-700"

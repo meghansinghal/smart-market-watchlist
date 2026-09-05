@@ -6,12 +6,9 @@ import { useCurrentUser } from "@/lib/CurrentUserContext";
 import { useCommitCheckpoints } from "@/lib/useCommitCheckpoints";
 import { AddSymbolForm } from "@/components/AddSymbolForm";
 import { WatchlistRow } from "@/components/WatchlistRow";
-import { UserSwitcher } from "@/components/UserSwitcher";
 
 export default function WatchlistPage() {
-  const { userId, setUserId } = useCurrentUser();
-  const { data: usersData } = useSWR("users", apiClient.getUsers);
-  const users = usersData?.users ?? [];
+  const { userId } = useCurrentUser();
 
   const {
     data: dashboard,
@@ -40,9 +37,8 @@ export default function WatchlistPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10 sm:px-10">
-      <header className="flex items-start justify-between gap-4">
+      <header>
         <h1 className="text-3xl font-bold tracking-tight text-stone-900">Watchlist</h1>
-        <UserSwitcher users={users} currentUserId={userId} onChange={setUserId} />
       </header>
 
       {userId && <AddSymbolForm userId={userId} onAdded={refetchAll} />}

@@ -48,7 +48,7 @@ export default function StockDetailPage() {
   }, [detail, userId]);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10 sm:px-10">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10 sm:px-10">
       <Link href="/watchlist" className="w-fit text-sm text-stone-500 hover:underline">
         ← Back to watchlist
       </Link>

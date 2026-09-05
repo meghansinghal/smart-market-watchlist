@@ -26,8 +26,8 @@ LLM.
 ## Multi-user, without authentication
 
 The app supports multiple users with fully isolated state — **without any
-login, password, session, or OAuth**. A small "Viewing as" switcher in the
-header lets you pick a seeded demo identity (Meghan, Siya, Karan, Aditi,
+login, password, session, or OAuth**. A "Viewing as" switcher in the
+sidebar lets you pick a seeded demo identity (Meghan, Siya, Karan, Aditi,
 Arush); switching is a plain client-side selection, not a security
 boundary.
 
@@ -77,6 +77,29 @@ this down.
 Because the underlying market data is shared, a scenario you force affects
 every user watching that symbol — but since checkpoints are per-user, each
 user's *classification* of that shared move can still differ.
+
+## Persistence and scale
+
+Two of the take-home's "you decide" architecture questions, answered by
+what's already here rather than speculative infrastructure:
+
+**Persists across sessions and devices** — watchlist items and checkpoints
+live in Postgres, not memory or `localStorage`, so they survive restarts
+and are visible from any browser the moment you pick the same demo user
+from the switcher. The only thing that's device-local is *which* demo user
+you're currently viewing as (a plain `localStorage` value) — making that
+follow you across devices would require some form of login, which is
+exactly what this app deliberately doesn't have.
+
+**Scales for larger watchlists and more users** — the data model already
+supports it: relational tables with proper composite keys, and market data
+fetched and cached once per symbol regardless of how many users are
+watching it (see "Multi-user" above). The one real soft spot is that a
+dashboard load fans out one external-data fetch per watchlist symbol —
+bounded today by the `ConcurrencyLimiter` and the closed-market
+fetch-skip, but not unbounded, and the UI has no pagination. Fine for a
+handful of symbols; a version built for dozens-plus per user would want to
+batch that fan-out into a single provider call and virtualize the list.
 
 ## Running locally
 

@@ -30,7 +30,7 @@ export function WatchlistRow({
   } else if (pct === 0) {
     changeLabel = "No change";
   } else if (pct !== null) {
-    changeLabel = formatPct(pct);
+    changeLabel = `${formatPct(pct)} since last visit`;
     changeClass = TONE_TEXT[tone];
   } else {
     changeLabel = "—";

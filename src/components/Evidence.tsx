@@ -9,15 +9,17 @@ function Tile({
   detail,
   fraction,
   accent = false,
+  title,
 }: {
   label: string;
   value: string;
   detail?: string | null;
   fraction: number;
   accent?: boolean;
+  title?: string;
 }) {
   return (
-    <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+    <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2" title={title}>
       <div className="text-[10px] font-medium tracking-wide text-stone-400 uppercase">{label}</div>
       <div className={`mt-0.5 font-semibold text-stone-800 ${accent ? "text-base" : "text-sm font-medium"}`}>
         {value}
@@ -68,7 +70,9 @@ export function Evidence({
 
   const unusualnessValue =
     multiple !== null
-      ? `${multiple.toFixed(1)}× typical move`
+      ? multiple < 0.05
+        ? "No movement"
+        : `${multiple.toFixed(1)}× typical move`
       : reasons.includes("HISTORICAL_CONTEXT_UNAVAILABLE")
         ? "Not enough history"
         : reasons.includes("UNUSUAL_FOR_STOCK")
@@ -94,20 +98,28 @@ export function Evidence({
         value={formatPct(pctChangeSinceCheckpoint)}
         fraction={scores.movementScore}
         accent
+        title="Price change since your last checkpoint."
       />
       <Tile
         label="Vs. own history"
         value={unusualnessValue}
         fraction={scores.unusualnessScore}
         accent={multiple !== null}
+        title="How this move compares to the stock's own typical day-to-day swing."
       />
-      <Tile label="Vs. benchmark" value={divergenceValue} fraction={scores.divergenceScore} />
+      <Tile
+        label="Vs. benchmark"
+        value={divergenceValue}
+        fraction={scores.divergenceScore}
+        title="Whether this move tracks or diverges from its sector/market benchmark over the same period."
+      />
       <Tile
         label="Volume"
         value={volumeConcrete ?? volumeQualitative}
         detail={volumeConcrete ? volumeQualitative : null}
         fraction={scores.volumeScore}
         accent={volumeConcrete !== null}
+        title="Trading volume compared to what's typical for this stock."
       />
     </div>
   );
