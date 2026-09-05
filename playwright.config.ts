@@ -9,7 +9,11 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
-  reporter: "list",
+  // Local runs just want console output; CI additionally writes an HTML
+  // report so the workflow's "upload on failure" step has something to
+  // find (it uploads playwright-report/, which the plain "list" reporter
+  // never produces).
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",
