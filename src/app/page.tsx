@@ -8,7 +8,7 @@ import { formatRelativeTime } from "@/lib/format";
 import { AddSymbolForm } from "@/components/AddSymbolForm";
 import { StockCard } from "@/components/StockCard";
 import { CompactStockRow } from "@/components/CompactStockRow";
-import { DemoModePanel } from "@/components/DemoModePanel";
+import { MarketSimulationPanel } from "@/components/MarketSimulationPanel";
 import { UserSwitcher } from "@/components/UserSwitcher";
 
 export default function Home() {
@@ -75,7 +75,7 @@ export default function Home() {
     );
   }
 
-  async function handleResetDemo() {
+  async function handleResetSimulation() {
     await apiClient.resetDemo();
     refetchAll();
   }
@@ -182,10 +182,10 @@ export default function Home() {
       {userId && <AddSymbolForm userId={userId} onAdded={refetchAll} />}
 
       {dashboard && (
-        <DemoModePanel
+        <MarketSimulationPanel
           symbols={dashboard.items.map((i) => i.symbol)}
           scenarios={scenarios}
-          onReset={handleResetDemo}
+          onReset={handleResetSimulation}
           onChanged={refetchAll}
         />
       )}

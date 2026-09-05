@@ -1,3 +1,13 @@
+/**
+ * Deterministic, offline market-data provider — used both as the default
+ * data source in synthetic mode (MARKET_DATA_PROVIDER=synthetic) and as
+ * the engine behind Market Simulation (see demoService/DemoScenario). A
+ * `scenario` only changes what price/volume/timestamp this provider
+ * generates; it produces an ordinary RawObservation that the rest of the
+ * pipeline (persistence, freshness classification, the Meaningful Change
+ * Engine) treats exactly like data from any other provider. Classification
+ * is never assigned here.
+ */
 import type { DemoScenario, HistoricalBar, RawObservation } from "@/server/domain/types";
 import { seededGaussian, seededRandom } from "@/server/domain/seededRandom";
 import {

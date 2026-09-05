@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import type { DemoScenario } from "@/server/domain/types";
 
+/** Persists which market condition (see DemoScenario) each symbol is
+ * currently pinned to for Market Simulation — testing/exploration
+ * infrastructure, not presenter-only state. Symbol-keyed and global by
+ * design: it simulates the shared MarketObservation, so every user
+ * watching that symbol sees the same underlying data (their
+ * classifications can still differ — see checkpointRepository). */
 export interface DemoScenarioStateInfo {
   scenario: DemoScenario;
   /** When this symbol's scenario last changed — null if it's never been

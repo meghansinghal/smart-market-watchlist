@@ -2,12 +2,24 @@
 
 import { useState } from "react";
 import type { DemoScenario } from "@/lib/apiTypes";
-import { DemoScenarioMenu } from "@/components/DemoScenarioMenu";
+import { ScenarioSelect } from "@/components/ScenarioSelect";
 
-/** Demo/presenter tooling, deliberately kept out of the way of the actual
- * product experience — collapsed by default, visually distinct (dashed
- * border, muted kicker) so it never reads as part of the consumer UI. */
-export function DemoModePanel({
+/**
+ * Market Simulation — a secondary, collapsible capability for testing and
+ * exploring how the market brief responds to different market conditions
+ * (a sudden price move, a volume spike, stale data, a provider outage,
+ * ...), not a presenter-only demo mode. Forcing a scenario here just
+ * changes what the synthetic provider generates for that symbol; the
+ * observation still flows through the same persistence, Meaningful Change
+ * Engine, and explanation pipeline as any other market data, and the
+ * classification you see is always derived from the resulting numbers.
+ *
+ * Deliberately kept out of the way of the primary product experience —
+ * collapsed by default, visually distinct (dashed border, muted kicker) —
+ * but always present; it's part of the shipped product, not something
+ * gated behind a flag.
+ */
+export function MarketSimulationPanel({
   symbols,
   scenarios,
   onReset,
@@ -27,18 +39,22 @@ export function DemoModePanel({
         className="flex w-full items-center justify-between px-4 py-2.5 text-left"
       >
         <span className="text-xs font-medium tracking-wide text-stone-400 uppercase">
-          For presenters · Demo mode
+          Market simulation
         </span>
         <span className="text-xs text-stone-400">{open ? "Hide ▲" : "Show ▼"}</span>
       </button>
 
       {open && (
         <div className="border-t border-dashed border-stone-300 px-4 py-3">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between gap-3">
             <p className="text-xs text-stone-500">
-              Force a scenario per symbol to preview how the dashboard reacts.
+              Preview how the market brief responds to different market conditions — useful for
+              testing and exploring the change engine, not just for presentations.
             </p>
-            <button onClick={onReset} className="text-xs font-medium text-stone-500 hover:text-stone-800">
+            <button
+              onClick={onReset}
+              className="shrink-0 text-xs font-medium text-stone-500 hover:text-stone-800"
+            >
               Reset all
             </button>
           </div>
@@ -46,7 +62,7 @@ export function DemoModePanel({
             {symbols.map((symbol) => (
               <div key={symbol} className="flex items-center justify-between gap-2 py-1.5">
                 <span className="text-sm text-stone-600">{symbol}</span>
-                <DemoScenarioMenu
+                <ScenarioSelect
                   symbol={symbol}
                   current={scenarios.get(symbol) ?? "NORMAL_MARKET"}
                   onChanged={onChanged}

@@ -13,7 +13,13 @@ const SCENARIOS: { value: DemoScenario; label: string }[] = [
   { value: "PROVIDER_FAILURE", label: "Provider failure" },
 ];
 
-export function DemoScenarioMenu({
+/** Forces a symbol's underlying MarketObservation into a specific market
+ * condition for testing/exploration. This does NOT set a classification —
+ * it only changes what price/volume/timestamp the synthetic provider
+ * generates; the Meaningful Change Engine still derives SIGNIFICANT /
+ * NOTABLE / NORMAL from those numbers exactly as it would for organic
+ * data. See MarketSimulationPanel. */
+export function ScenarioSelect({
   symbol,
   current,
   onChanged,
@@ -40,8 +46,8 @@ export function DemoScenarioMenu({
       value={current}
       onChange={handleChange}
       disabled={pending}
-      data-testid={`demo-scenario-${symbol}`}
-      title={`Demo scenario for ${symbol}`}
+      data-testid={`simulation-scenario-${symbol}`}
+      title={`Market condition to simulate for ${symbol}`}
       className="rounded-md border border-stone-300 bg-white px-2 py-1 text-xs text-stone-600 outline-none disabled:opacity-50"
     >
       {SCENARIOS.map((s) => (
