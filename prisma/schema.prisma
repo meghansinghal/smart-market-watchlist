@@ -1,0 +1,106 @@
+// Prisma schema for "What Did I Miss" — Smart Market Watchlist
+// Single-implicit-user application: there is no auth model. All watchlist
+// items, checkpoints and observations belong to the one household user.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// A symbol the user has chosen to track.
+model WatchlistItem {
+  id        String   @id @default(cuid())
+  symbol    String   @unique
+  addedAt   DateTime @default(now())
+
+  @@index([symbol])
+}
+
+/// Source of a market observation — where the number actually came from.
+enum ObservationSource {
+  YAHOO
+  SYNTHETIC
+  STATIC_SNAPSHOT
+}
+
+/// How trustworthy/current an observation is. This is orthogonal to
+/// `source`: a LIVE observation and a CACHED observation can both have
+/// originally come from YAHOO, but freshness tells the UI (and the change
+/// engine) whether it's safe to treat the number as "right now".
+enum Freshness {
+  LIVE
+  DELAYED
+  /// Market is closed; this is legitimate last-close data, not an error
+  /// state — distinct from STALE, which means data older than that.
+  CLOSED
+  STALE
+  CACHED
+  STATIC
+  UNAVAILABLE
+}
+
+/// A single normalized market data point for a symbol. This is the
+/// persisted cache that lets the Market Data Service fall back to
+/// "latest known good" when the live provider fails, and it is also the
+/// audit trail of everything the app has ever observed.
+model MarketObservation {
+  id         String            @id @default(cuid())
+  symbol     String
+  price      Float
+  volume     BigInt?
+  observedAt DateTime
+  receivedAt DateTime          @default(now())
+  source     ObservationSource
+  freshness  Freshness
+
+  @@index([symbol, observedAt(sort: Desc)])
+  @@index([symbol, receivedAt(sort: Desc)])
+}
+
+/// One EOD bar used as historical baseline (last N completed trading days).
+model HistoricalBar {
+  id     String   @id @default(cuid())
+  symbol String
+  date   DateTime
+  close  Float
+  volume BigInt?
+
+  @@unique([symbol, date])
+  @@index([symbol, date(sort: Desc)])
+}
+
+/// "What the user last successfully saw." Updated only after the dashboard
+/// has been rendered with valid, non-stale data and the client has
+/// acknowledged it. One row per symbol.
+model Checkpoint {
+  symbol      String            @id
+  price       Float
+  volume      BigInt?
+  observedAt  DateTime
+  source      ObservationSource
+  freshness   Freshness
+  checkedAt   DateTime          @default(now())
+}
+
+/// Which synthetic scenario a symbol is currently pinned to, for the demo
+/// controls. Independent of the globally configured market data provider —
+/// activating a scenario always routes that symbol through the synthetic
+/// provider so demos work even when the app is otherwise wired to Yahoo.
+enum DemoScenario {
+  NORMAL_MARKET
+  PRICE_SHOCK
+  VOLUME_SPIKE
+  SECTOR_DIVERGENCE
+  STALE_DATA
+  PROVIDER_FAILURE
+}
+
+model DemoScenarioState {
+  symbol    String       @id
+  scenario  DemoScenario @default(NORMAL_MARKET)
+  updatedAt DateTime     @updatedAt
+}

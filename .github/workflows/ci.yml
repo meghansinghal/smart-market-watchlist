@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: whatdidimiss
+          POSTGRES_PASSWORD: whatdidimiss
+          POSTGRES_DB: whatdidimiss
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U whatdidimiss -d whatdidimiss"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://whatdidimiss:whatdidimiss@localhost:5432/whatdidimiss
+      # Real Yahoo Finance access is never used in CI — synthetic mode is
+      # deterministic, needs no outbound network, and can't be rate-limited.
+      MARKET_DATA_PROVIDER: synthetic
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx prisma migrate deploy
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm run test
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
