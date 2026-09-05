@@ -1,5 +1,5 @@
 import type { ChangeClassification, Freshness } from "@/lib/apiTypes";
-import { classificationTone, TONE_BADGE } from "@/lib/tone";
+import { classificationTone, TONE_STYLES } from "@/lib/tone";
 
 const CLASSIFICATION_LABEL: Record<ChangeClassification, string> = {
   SIGNIFICANT: "Significant",
@@ -20,7 +20,7 @@ export function ClassificationBadge({
   const tone = classificationTone(classification, pct);
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE_BADGE[tone]}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE_STYLES[tone].badge}`}
     >
       {CLASSIFICATION_LABEL[classification]}
     </span>

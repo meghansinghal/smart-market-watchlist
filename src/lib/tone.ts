@@ -24,53 +24,59 @@ export function classificationTone(
   return "grey";
 }
 
-export const TONE_TEXT: Record<Tone, string> = {
-  grey: "text-stone-500",
-  amber: "text-amber-700",
-  green: "text-green-700",
-  red: "text-red-700",
-};
+interface ToneStyle {
+  /** Percentage/label text color. */
+  text: string;
+  /** Classification pill background/text/ring. */
+  badge: string;
+  /** Small status dot fill. */
+  dot: string;
+  /** Left-accent border for callout-style boxes. */
+  border: string;
+  /** Soft background to pair with `border`. */
+  softBg: string;
+  /** Full border+background for a standalone callout panel. */
+  callout: string;
+  /** Hex mirror of the same color, for SVG `stroke`/`fill` attributes
+   * (the chart) that can't take a Tailwind class. */
+  hex: string;
+}
 
-export const TONE_BADGE: Record<Tone, string> = {
-  grey: "bg-stone-100 text-stone-600 ring-1 ring-inset ring-stone-200",
-  amber: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
-  green: "bg-green-50 text-green-700 ring-1 ring-inset ring-green-200",
-  red: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-200",
-};
-
-export const TONE_DOT: Record<Tone, string> = {
-  grey: "bg-stone-300",
-  amber: "bg-amber-500",
-  green: "bg-green-500",
-  red: "bg-red-500",
-};
-
-export const TONE_BORDER: Record<Tone, string> = {
-  grey: "border-stone-300",
-  amber: "border-amber-400",
-  green: "border-green-400",
-  red: "border-red-400",
-};
-
-export const TONE_SOFT_BG: Record<Tone, string> = {
-  grey: "bg-stone-50",
-  amber: "bg-amber-50",
-  green: "bg-green-50",
-  red: "bg-red-50",
-};
-
-export const TONE_CALLOUT: Record<Tone, string> = {
-  grey: "border-stone-200 bg-stone-50",
-  amber: "border-amber-200 bg-amber-50",
-  green: "border-green-200 bg-green-50",
-  red: "border-red-200 bg-red-50",
-};
-
-// Hex mirrors of the same palette for contexts that can't take a Tailwind
-// class — SVG `stroke`/`fill` attributes in the chart.
-export const TONE_HEX: Record<Tone, string> = {
-  grey: "#a8a29e",
-  amber: "#d97706",
-  green: "#16a34a",
-  red: "#dc2626",
+export const TONE_STYLES: Record<Tone, ToneStyle> = {
+  grey: {
+    text: "text-stone-500",
+    badge: "bg-stone-100 text-stone-600 ring-1 ring-inset ring-stone-200",
+    dot: "bg-stone-300",
+    border: "border-stone-300",
+    softBg: "bg-stone-50",
+    callout: "border-stone-200 bg-stone-50",
+    hex: "#a8a29e",
+  },
+  amber: {
+    text: "text-amber-700",
+    badge: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
+    dot: "bg-amber-500",
+    border: "border-amber-400",
+    softBg: "bg-amber-50",
+    callout: "border-amber-200 bg-amber-50",
+    hex: "#d97706",
+  },
+  green: {
+    text: "text-green-700",
+    badge: "bg-green-50 text-green-700 ring-1 ring-inset ring-green-200",
+    dot: "bg-green-500",
+    border: "border-green-400",
+    softBg: "bg-green-50",
+    callout: "border-green-200 bg-green-50",
+    hex: "#16a34a",
+  },
+  red: {
+    text: "text-red-700",
+    badge: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-200",
+    dot: "bg-red-500",
+    border: "border-red-400",
+    softBg: "bg-red-50",
+    callout: "border-red-200 bg-red-50",
+    hex: "#dc2626",
+  },
 };

@@ -82,11 +82,7 @@ export class SyntheticMarketDataProvider implements IMarketDataProvider {
     scenario: DemoScenario = "NORMAL_MARKET",
   ): Promise<RawObservation> {
     if (scenario === "PROVIDER_FAILURE") {
-      throw new MarketDataError(
-        `Synthetic provider simulated failure for ${symbol}`,
-        "UNKNOWN",
-        symbol,
-      );
+      throw new MarketDataError(`Synthetic provider simulated failure for ${symbol}`, symbol);
     }
 
     const profile = profileFor(symbol);

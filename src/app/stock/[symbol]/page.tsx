@@ -9,7 +9,7 @@ import { apiClient, ApiError } from "@/lib/apiClient";
 import { useCurrentUser } from "@/lib/CurrentUserContext";
 import { benchmarkNameFor, displayNameFor, sectorLabelFor } from "@/lib/displayNames";
 import { formatDate, formatObservationTimestamp, formatPct, formatPrice, formatVolume } from "@/lib/format";
-import { classificationTone, TONE_CALLOUT, TONE_TEXT, type Tone } from "@/lib/tone";
+import { classificationTone, TONE_STYLES, type Tone } from "@/lib/tone";
 import { ClassificationBadge, FreshnessBadge } from "@/components/Badge";
 import { Evidence } from "@/components/Evidence";
 import { PriceChart } from "@/components/PriceChart";
@@ -17,8 +17,8 @@ import { PriceChart } from "@/components/PriceChart";
 // A stale/limited data status is a caution regardless of what the last
 // good classification was, so it overrides the usual tone.
 function calloutTone(tone: Tone, dataStatus: DataStatus | undefined): string {
-  if (dataStatus === "LIMITED") return TONE_CALLOUT.amber;
-  return TONE_CALLOUT[tone];
+  if (dataStatus === "LIMITED") return TONE_STYLES.amber.callout;
+  return TONE_STYLES[tone].callout;
 }
 
 export default function StockDetailPage() {
@@ -74,7 +74,7 @@ export default function StockDetailPage() {
                   {formatPrice(detail.observation.price)}
                 </span>
                 {pct !== null && (
-                  <span className={pct === 0 ? "text-stone-500" : `font-medium ${TONE_TEXT[tone]}`}>
+                  <span className={pct === 0 ? "text-stone-500" : `font-medium ${TONE_STYLES[tone].text}`}>
                     {pct === 0 ? "No change" : formatPct(pct)} since last visit
                   </span>
                 )}

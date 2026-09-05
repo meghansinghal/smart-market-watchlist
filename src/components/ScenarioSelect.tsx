@@ -18,7 +18,7 @@ const SCENARIOS: { value: DemoScenario; label: string }[] = [
  * it only changes what price/volume/timestamp the synthetic provider
  * generates; the Meaningful Change Engine still derives SIGNIFICANT /
  * NOTABLE / NORMAL from those numbers exactly as it would for organic
- * data. See MarketSimulationPanel. */
+ * data. See MarketSimulationModal. */
 export function ScenarioSelect({
   symbol,
   current,

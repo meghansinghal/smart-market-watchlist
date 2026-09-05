@@ -3,7 +3,7 @@ import { demoScenarioRepository } from "@/server/repositories/demoScenarioReposi
 import { watchlistRepository } from "@/server/repositories/watchlistRepository";
 
 /**
- * Backs the Market Simulation capability (see MarketSimulationPanel) — a
+ * Backs the Market Simulation capability (see MarketSimulationModal) — a
  * testing/exploration tool for forcing a symbol's synthetic market data
  * into a specific condition, not a presenter-only demo mode. Forcing a
  * scenario never assigns a classification directly: it only changes what

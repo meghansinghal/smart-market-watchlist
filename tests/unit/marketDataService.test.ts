@@ -86,7 +86,7 @@ describe("marketDataService.fetchObservation fallback chain", () => {
   });
 
   it("falls back to the latest cached observation when the provider fails, and labels it CACHED", async () => {
-    yahooGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "TIMEOUT", "INFY.NS"));
+    yahooGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "INFY.NS"));
     observationRepositoryMock.latestFor.mockResolvedValueOnce({
       id: "obs-old",
       symbol: "INFY.NS",
@@ -107,7 +107,7 @@ describe("marketDataService.fetchObservation fallback chain", () => {
   });
 
   it("falls back to the static snapshot when the provider fails and there is no cache", async () => {
-    yahooGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "TIMEOUT", "INFY.NS"));
+    yahooGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "INFY.NS"));
     observationRepositoryMock.latestFor.mockResolvedValueOnce(null);
     observationRepositoryMock.saveIfNewer.mockImplementationOnce(async (raw, freshness) => ({
       id: "obs-static",
@@ -125,7 +125,7 @@ describe("marketDataService.fetchObservation fallback chain", () => {
   });
 
   it("reports unavailable — never silently swallowed — when every rung fails", async () => {
-    yahooGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "TIMEOUT", "UNKNOWN.NS"));
+    yahooGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "UNKNOWN.NS"));
     observationRepositoryMock.latestFor.mockResolvedValueOnce(null);
 
     const result = await marketDataService.fetchObservation("UNKNOWN.NS");
@@ -343,7 +343,7 @@ describe("marketDataService.fetchHistorical", () => {
   it("falls back to whatever's already stored if the provider call fails", async () => {
     const existing = [{ symbol: "INFY.NS", date: new Date("2026-09-03T03:45:00Z"), close: 1130, volume: 5_000_000 }];
     historicalRepositoryMock.getRecent.mockResolvedValueOnce(existing);
-    yahooGetHistorical.mockRejectedValueOnce(new MarketDataError("boom", "TIMEOUT", "INFY.NS"));
+    yahooGetHistorical.mockRejectedValueOnce(new MarketDataError("boom", "INFY.NS"));
 
     const bars = await marketDataService.fetchHistorical("INFY.NS", 5);
 

@@ -61,8 +61,3 @@ export function explain(result: ChangeResult): Explanation {
 
   return { headline, bullets };
 }
-
-export function formatPct(n: number | null, digits = 1): string {
-  if (n === null) return "—";
-  return pct(n, digits);
-}

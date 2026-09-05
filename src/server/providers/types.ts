@@ -16,12 +16,9 @@ export interface IMarketDataProvider {
   getHistorical(symbol: string, days: number): Promise<HistoricalBar[]>;
 }
 
-export type MarketDataErrorCode = "TIMEOUT" | "RATE_LIMITED" | "NOT_FOUND" | "UNKNOWN";
-
 export class MarketDataError extends Error {
   constructor(
     message: string,
-    public readonly code: MarketDataErrorCode,
     public readonly symbol: string,
   ) {
     super(message);

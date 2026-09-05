@@ -34,12 +34,6 @@ export const checkpointRepository = {
     return row ? toDomain(row) : null;
   },
 
-  async getMany(userId: string, symbols: string[]): Promise<Map<string, Checkpoint>> {
-    if (symbols.length === 0) return new Map();
-    const rows = await prisma.checkpoint.findMany({ where: { userId, symbol: { in: symbols } } });
-    return new Map(rows.map((r) => [r.symbol, toDomain(r)]));
-  },
-
   /** Set a user's checkpoint for a symbol to a specific observation.
    * Callers are responsible for only calling this with valid, non-stale
    * data — the repository doesn't second-guess freshness itself, since "is

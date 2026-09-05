@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import type { HistoricalBarJSON } from "@/lib/apiTypes";
 import { formatDate, formatPrice } from "@/lib/format";
-import { TONE_HEX, type Tone } from "@/lib/tone";
+import { TONE_STYLES, type Tone } from "@/lib/tone";
 
 interface ChartPoint {
   date: string;
@@ -69,7 +69,7 @@ export function PriceChart({
             <Line
               type="monotone"
               dataKey="close"
-              stroke={TONE_HEX[tone]}
+              stroke={TONE_STYLES[tone].hex}
               strokeWidth={1.5}
               dot={false}
               isAnimationActive={false}
@@ -135,7 +135,7 @@ export function PriceChart({
               <Line
                 type="monotone"
                 dataKey="highlightClose"
-                stroke={TONE_HEX[tone]}
+                stroke={TONE_STYLES[tone].hex}
                 strokeWidth={2.5}
                 dot={false}
                 connectNulls={false}
@@ -160,7 +160,7 @@ export function PriceChart({
                 x={lastPoint.date}
                 y={lastPoint.close}
                 r={4}
-                fill={TONE_HEX[tone]}
+                fill={TONE_STYLES[tone].hex}
                 stroke="#ffffff"
                 strokeWidth={1}
               />
@@ -174,8 +174,8 @@ export function PriceChart({
             <span className="h-1.5 w-1.5 rounded-full border border-stone-400 bg-white" aria-hidden />
             Last checked
           </span>
-          <span className="inline-flex items-center gap-1.5" style={{ color: TONE_HEX[tone] }}>
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: TONE_HEX[tone] }} aria-hidden />
+          <span className="inline-flex items-center gap-1.5" style={{ color: TONE_STYLES[tone].hex }}>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: TONE_STYLES[tone].hex }} aria-hidden />
             Now
           </span>
         </div>

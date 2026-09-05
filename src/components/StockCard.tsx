@@ -7,7 +7,7 @@ import { apiClient } from "@/lib/apiClient";
 import { useCurrentUser } from "@/lib/CurrentUserContext";
 import { displayNameFor } from "@/lib/displayNames";
 import { formatObservationTimestamp, formatPct, formatPrice } from "@/lib/format";
-import { classificationTone, TONE_BORDER, TONE_SOFT_BG, TONE_TEXT } from "@/lib/tone";
+import { classificationTone, TONE_STYLES } from "@/lib/tone";
 import { ClassificationBadge, FreshnessBadge } from "@/components/Badge";
 import { Evidence } from "@/components/Evidence";
 import { PriceChart } from "@/components/PriceChart";
@@ -69,7 +69,7 @@ export function StockCard({
                 <span className="text-stone-400">{formatPrice(previousPrice)} →</span>
               ) : null}
               <span className="text-lg font-semibold text-stone-900">{formatPrice(observation.price)}</span>
-              <span className={pct === 0 || pct === null ? "text-stone-500" : `font-medium ${TONE_TEXT[tone]}`}>
+              <span className={pct === 0 || pct === null ? "text-stone-500" : `font-medium ${TONE_STYLES[tone].text}`}>
                 {pct === 0 ? "No change" : formatPct(pct)}
               </span>
             </div>
@@ -99,8 +99,8 @@ export function StockCard({
       )}
 
       {whyThisMatters && (
-        <div className={`mt-3 rounded-lg border-l-4 py-2 pl-3 pr-2 ${TONE_BORDER[tone]} ${TONE_SOFT_BG[tone]}`}>
-          <div className={`text-[10px] font-semibold tracking-wide uppercase ${TONE_TEXT[tone]}`}>
+        <div className={`mt-3 rounded-lg border-l-4 py-2 pl-3 pr-2 ${TONE_STYLES[tone].border} ${TONE_STYLES[tone].softBg}`}>
+          <div className={`text-[10px] font-semibold tracking-wide uppercase ${TONE_STYLES[tone].text}`}>
             Why this matters
           </div>
           <p className="mt-0.5 text-sm font-medium text-stone-800">{whyThisMatters}</p>

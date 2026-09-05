@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { SymbolBriefJSON } from "@/lib/apiTypes";
 import { displayNameFor } from "@/lib/displayNames";
 import { formatPct, formatPrice } from "@/lib/format";
-import { classificationTone, TONE_DOT, TONE_TEXT } from "@/lib/tone";
+import { classificationTone, TONE_STYLES } from "@/lib/tone";
 import { FreshnessBadge } from "@/components/Badge";
 
 /** One row in the full Watchlist view — every tracked symbol, regardless
@@ -31,7 +31,7 @@ export function WatchlistRow({
     changeLabel = "No change";
   } else if (pct !== null) {
     changeLabel = `${formatPct(pct)} since last visit`;
-    changeClass = TONE_TEXT[tone];
+    changeClass = TONE_STYLES[tone].text;
   } else {
     changeLabel = "—";
   }
@@ -42,7 +42,7 @@ export function WatchlistRow({
       className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
     >
       <div className="flex min-w-0 items-center gap-3">
-        <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone]}`} aria-hidden />
+        <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_STYLES[tone].dot}`} aria-hidden />
         <div className="min-w-0">
           <Link
             href={`/stock/${encodeURIComponent(symbol)}`}

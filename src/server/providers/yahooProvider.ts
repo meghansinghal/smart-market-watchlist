@@ -16,7 +16,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, symbol: string): 
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      reject(new MarketDataError(`Yahoo Finance timed out for ${symbol}`, "TIMEOUT", symbol));
+      reject(new MarketDataError(`Yahoo Finance timed out for ${symbol}`, symbol));
     }, ms);
   });
   try {
@@ -29,13 +29,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, symbol: string): 
 function toMarketDataError(err: unknown, symbol: string): MarketDataError {
   if (err instanceof MarketDataError) return err;
   const message = err instanceof Error ? err.message : String(err);
-  if (/rate limit|429|too many requests/i.test(message)) {
-    return new MarketDataError(message, "RATE_LIMITED", symbol);
-  }
-  if (/not found|404|no data/i.test(message)) {
-    return new MarketDataError(message, "NOT_FOUND", symbol);
-  }
-  return new MarketDataError(message, "UNKNOWN", symbol);
+  return new MarketDataError(message, symbol);
 }
 
 /** Yahoo Finance is treated as an unreliable external dependency: every
@@ -53,7 +47,7 @@ export class YahooMarketDataProvider implements IMarketDataProvider {
           symbol,
         );
         if (!quote || typeof quote.regularMarketPrice !== "number") {
-          throw new MarketDataError(`No quote data for ${symbol}`, "NOT_FOUND", symbol);
+          throw new MarketDataError(`No quote data for ${symbol}`, symbol);
         }
         return {
           symbol,

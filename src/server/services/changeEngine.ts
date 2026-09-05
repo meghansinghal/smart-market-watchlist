@@ -47,7 +47,13 @@ export function movementScore(pctChangePoints: number): number {
 }
 
 /** Standard deviation (population) of day-over-day % returns, in
- * percentage points, computed from a series of closes oldest→newest. */
+ * percentage points, computed from a series of closes oldest→newest.
+ *
+ * Mirrored client-side in src/lib/stats.ts — the dashboard/stock-detail
+ * payload only carries `historicalCloses`, not this derived stat, so the
+ * UI recomputes the same formula from that raw data to show a real
+ * "×typical move" figure rather than inventing one. Keep both in sync if
+ * this formula ever changes. */
 export function dailyReturnStdevPct(closes: number[]): number | null {
   if (closes.length < 2) return null;
   const returns: number[] = [];

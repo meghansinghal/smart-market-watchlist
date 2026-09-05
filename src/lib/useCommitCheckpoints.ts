@@ -14,25 +14,21 @@ const committedGeneratedAt = new Map<string, string>();
  * forward. Shared by every page that renders the dashboard brief, so
  * whichever one a user lands on first still acknowledges it.
  *
- * Commits only once per mount (per user). A page can stay mounted while its
+ * Commits only once per mount, per user (a page can stay mounted while its
  * dashboard data silently revalidates underneath it — e.g. the Watchlist
  * page stays mounted behind the Market Simulation modal, whose scenario
  * changes invalidate the shared SWR cache — and none of that is the user
  * actually "visiting" again. Treating every such revalidation as a fresh
- * visit would ack a meaningful change before the user ever saw it.
+ * visit would ack a meaningful change before the user ever saw it). A user
+ * switch (via the in-page switcher, not a navigation/remount) is its own
+ * new "visit" and is free to commit again.
  */
 export function useCommitCheckpoints(dashboard: DashboardResponse | undefined, userId: string | null) {
-  const hasCommittedThisMount = useRef(false);
-
-  // A user switch (via the in-page switcher, not a navigation/remount) is
-  // its own new "visit" and should be free to commit again.
-  useEffect(() => {
-    hasCommittedThisMount.current = false;
-  }, [userId]);
+  const lastCommittedUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!dashboard || !userId || hasCommittedThisMount.current) return;
-    hasCommittedThisMount.current = true;
+    if (!dashboard || !userId || lastCommittedUserId.current === userId) return;
+    lastCommittedUserId.current = userId;
     if (committedGeneratedAt.get(userId) === dashboard.generatedAt) return;
     committedGeneratedAt.set(userId, dashboard.generatedAt);
     // "OK" means we compared against a prior checkpoint; "NEW" means this

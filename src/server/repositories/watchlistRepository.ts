@@ -22,9 +22,4 @@ export const watchlistRepository = {
   async remove(userId: string, symbol: string): Promise<void> {
     await prisma.watchlistItem.deleteMany({ where: { userId, symbol } });
   },
-
-  async exists(userId: string, symbol: string): Promise<boolean> {
-    const row = await prisma.watchlistItem.findUnique({ where: { userId_symbol: { userId, symbol } } });
-    return row !== null;
-  },
 };

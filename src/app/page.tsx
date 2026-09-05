@@ -98,9 +98,7 @@ export default function BriefPage() {
                 meaningful change{worthALook.length === 1 ? "" : "s"}
               </span>
             </div>
-            <div className="pb-1.5 text-xs text-stone-400">
-              {noChangeCount} no meaningful change{noChangeCount === 1 ? "" : "s"}
-            </div>
+            <div className="pb-1.5 text-xs text-stone-400">{noChangeCount} unchanged</div>
           </div>
         </section>
       )}
