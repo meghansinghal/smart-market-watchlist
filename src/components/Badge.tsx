@@ -1,9 +1,19 @@
 import type { ChangeClassification, Freshness } from "@/lib/apiTypes";
 
+// Deliberately not red/green: classification is about *magnitude of
+// attention-worthiness*, not good-news/bad-news — a SIGNIFICANT move can
+// easily be a big gain. Red/green stay reserved for price direction
+// elsewhere, so a pill never fights the price number next to it.
 const CLASSIFICATION_STYLES: Record<ChangeClassification, string> = {
-  SIGNIFICANT: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-200",
-  NOTABLE: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
+  SIGNIFICANT: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200",
+  NOTABLE: "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200",
   NORMAL: "bg-stone-100 text-stone-500 ring-1 ring-inset ring-stone-200",
+};
+
+export const CLASSIFICATION_DOT: Record<ChangeClassification, string> = {
+  SIGNIFICANT: "bg-amber-500",
+  NOTABLE: "bg-blue-500",
+  NORMAL: "bg-stone-300",
 };
 
 const CLASSIFICATION_LABEL: Record<ChangeClassification, string> = {

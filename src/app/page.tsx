@@ -1,72 +1,35 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import useSWR from "swr";
 import { apiClient, ApiError } from "@/lib/apiClient";
 import { useCurrentUser } from "@/lib/CurrentUserContext";
+import { timeOfDayGreeting } from "@/lib/greeting";
 import { formatRelativeTime } from "@/lib/format";
-import { AddSymbolForm } from "@/components/AddSymbolForm";
+import { useCommitCheckpoints } from "@/lib/useCommitCheckpoints";
 import { StockCard } from "@/components/StockCard";
-import { CompactStockRow } from "@/components/CompactStockRow";
-import { MarketSimulationPanel } from "@/components/MarketSimulationPanel";
 import { UserSwitcher } from "@/components/UserSwitcher";
 
-export default function Home() {
+export default function BriefPage() {
   const { userId, setUserId } = useCurrentUser();
-  // CurrentUserProvider already defaults userId to the first seeded user
-  // once the list loads — this fetch just supplies the switcher's options
-  // (SWR dedupes it against the context's own "users" fetch).
   const { data: usersData } = useSWR("users", apiClient.getUsers);
   const users = usersData?.users ?? [];
 
-  // Every user-scoped fetch is keyed by userId, so switching users is just
-  // a normal SWR cache-key change — it refetches and re-renders that
-  // user's watchlist and "since your last visit" state immediately.
   const {
     data: dashboard,
     error: dashboardError,
     isLoading,
     mutate: refetchDashboard,
   } = useSWR(userId ? ["dashboard", userId] : null, () => apiClient.getDashboard(userId!));
-  const { data: scenariosData, mutate: refetchScenarios } = useSWR(
-    userId ? ["demo-scenarios", userId] : null,
-    () => apiClient.getDemoScenarios(userId!),
-  );
-  const scenarios = new Map((scenariosData?.scenarios ?? []).map((s) => [s.symbol, s.scenario]));
 
-  const committedGeneratedAt = useRef<string | null>(null);
+  useCommitCheckpoints(dashboard, userId);
 
-  // Once the dashboard has actually been rendered with a fresh brief, tell
-  // the server "this user has now seen this" so next visit's comparison
-  // baseline moves forward. Guarded so a given brief is only acknowledged
-  // once, even across dev double-effects or re-fetches of the same data.
-  useEffect(() => {
-    if (!dashboard || !userId || committedGeneratedAt.current === dashboard.generatedAt) return;
-    committedGeneratedAt.current = dashboard.generatedAt;
-    // "OK" means we compared against a prior checkpoint; "NEW" means this
-    // symbol has none yet. Both are checkpoint-worthy — NEW is exactly how
-    // a freshly added symbol gets its first baseline established.
-    const items = dashboard.items
-      .filter(
-        (item) =>
-          (item.change?.dataStatus === "OK" || item.change?.dataStatus === "NEW") && item.observation,
-      )
-      .map((item) => ({ symbol: item.symbol, observationId: item.observation!.id }));
-    if (items.length > 0) {
-      apiClient.commitCheckpoints(userId, items).catch(() => {
-        // Best-effort acknowledgement; next load will retry naturally.
-      });
-    }
-  }, [dashboard, userId]);
-
-  function refetchAll() {
-    refetchDashboard();
-    refetchScenarios();
-  }
+  // Purely decorative — fetched via SWR (not a raw useState+useEffect) so
+  // the browser's local time is only ever read after mount, never during
+  // server rendering, which would otherwise risk a hydration mismatch.
+  const { data: greeting } = useSWR("greeting", () => timeOfDayGreeting());
 
   async function handleRemove(symbol: string) {
     if (!userId) return;
-    // Only reachable once a card/row is rendered, i.e. dashboard is loaded.
     await refetchDashboard(
       apiClient.removeWatchlistItem(userId, symbol).then(() => apiClient.getDashboard(userId)),
       {
@@ -75,34 +38,22 @@ export default function Home() {
     );
   }
 
-  async function handleResetSimulation() {
-    await apiClient.resetDemo();
-    refetchAll();
-  }
-
   const error = dashboardError instanceof ApiError ? dashboardError.message : dashboardError ? "Couldn't load your watchlist." : null;
 
   const worthALook = dashboard?.items.filter(
     (i) => i.change?.classification === "SIGNIFICANT" || i.change?.classification === "NOTABLE",
   ) ?? [];
-  const significantCount = worthALook.filter((i) => i.change?.classification === "SIGNIFICANT").length;
-  const notableCount = worthALook.length - significantCount;
+  const noChangeCount = (dashboard?.items.length ?? 0) - worthALook.length;
   // Sort significant first so the biggest deal is always at the top.
   const sortedWorthALook = [...worthALook].sort((a, b) => {
     const rank = (c?: string | null) => (c === "SIGNIFICANT" ? 0 : 1);
     return rank(a.change?.classification) - rank(b.change?.classification);
   });
-  const everythingElse = dashboard?.items.filter((i) => !worthALook.includes(i)) ?? [];
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:px-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10 sm:px-10">
       <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-stone-900">What Did I Miss?</h1>
-          <p className="mt-1 text-sm text-stone-500">
-            Your watchlist, filtered down to what actually changed since you last looked.
-          </p>
-        </div>
+        <h1 className="text-3xl font-bold tracking-tight text-stone-900">{greeting ?? "Hello"}</h1>
         <div className="mt-1 flex shrink-0 flex-col items-end gap-2">
           <UserSwitcher users={users} currentUserId={userId} onChange={setUserId} />
           {dashboard && (
@@ -122,38 +73,44 @@ export default function Home() {
         </div>
       </header>
 
-      {isLoading && <p className="text-sm text-stone-500">Loading your watchlist…</p>}
+      {isLoading && <p className="text-sm text-stone-500">Loading your brief…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {dashboard && (
-        <section className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium tracking-wide text-stone-400 uppercase">
-            Since your last visit
+        <section className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-medium tracking-wide text-stone-400 uppercase">
+              Since your last visit
+            </div>
+            <div className="text-xs text-stone-400">{formatRelativeTime(dashboard.generatedAt)}</div>
           </div>
-          {worthALook.length === 0 ? (
-            <p className="mt-1 text-lg font-semibold text-stone-800">
-              Nothing significant changed — you&apos;re all caught up.
-            </p>
-          ) : (
-            <p className="mt-1 text-lg font-semibold text-stone-800">
-              {worthALook.length} stock{worthALook.length === 1 ? "" : "s"} worth a look
-              <span className="ml-2 text-sm font-normal text-stone-500">
-                {[
-                  significantCount > 0 ? `${significantCount} significant` : null,
-                  notableCount > 0 ? `${notableCount} notable` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-            </p>
-          )}
-          <p className="mt-1 text-xs text-stone-400">Updated {formatRelativeTime(dashboard.generatedAt)}</p>
+          <div className="mt-3 flex items-stretch gap-6">
+            <div>
+              <div className="font-mono text-3xl font-bold text-amber-700">{worthALook.length}</div>
+              <div className="text-sm text-stone-500">meaningful change{worthALook.length === 1 ? "" : "s"}</div>
+            </div>
+            <div className="w-px bg-stone-200" />
+            <div>
+              <div className="font-mono text-3xl font-bold text-stone-400">{noChangeCount}</div>
+              <div className="text-sm text-stone-500">no meaningful change</div>
+            </div>
+          </div>
         </section>
       )}
 
       {dashboard && dashboard.items.length === 0 && !isLoading && (
         <p className="rounded-xl border border-dashed border-stone-300 p-8 text-center text-sm text-stone-500">
-          Your watchlist is empty. Add a symbol below to start tracking it.
+          Your watchlist is empty.{" "}
+          <a href="/watchlist" className="underline">
+            Add a symbol
+          </a>{" "}
+          to start tracking it.
+        </p>
+      )}
+
+      {dashboard && sortedWorthALook.length === 0 && dashboard.items.length > 0 && (
+        <p className="rounded-xl border border-dashed border-stone-300 p-8 text-center text-sm text-stone-500">
+          Nothing worth a look right now — everything&apos;s within its normal range.
         </p>
       )}
 
@@ -164,30 +121,6 @@ export default function Home() {
             <StockCard key={item.symbol} brief={item} onRemove={handleRemove} />
           ))}
         </section>
-      )}
-
-      {everythingElse.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold tracking-wide text-stone-500 uppercase">
-            No meaningful change
-          </h2>
-          <div className="divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white shadow-sm">
-            {everythingElse.map((item) => (
-              <CompactStockRow key={item.symbol} brief={item} onRemove={handleRemove} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {userId && <AddSymbolForm userId={userId} onAdded={refetchAll} />}
-
-      {dashboard && (
-        <MarketSimulationPanel
-          symbols={dashboard.items.map((i) => i.symbol)}
-          scenarios={scenarios}
-          onReset={handleResetSimulation}
-          onChanged={refetchAll}
-        />
       )}
     </div>
   );

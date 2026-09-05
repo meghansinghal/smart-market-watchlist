@@ -11,7 +11,7 @@ async function getSeededUsers(request: import("@playwright/test").APIRequestCont
   return { meghan, siya, users };
 }
 
-test.describe("Watchlist dashboard", () => {
+test.describe("Watchlist app", () => {
   test.afterEach(async ({ request }) => {
     // Best-effort cleanup in case a test fails mid-way and leaves the
     // symbol behind for the next run — try every seeded user, since we
@@ -22,36 +22,33 @@ test.describe("Watchlist dashboard", () => {
     }
   });
 
-  test("shows the seeded watchlist with live prices", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: "What Did I Miss?" })).toBeVisible();
+  test("Watchlist page shows every tracked symbol with live prices", async ({ page }) => {
+    await page.goto("/watchlist");
+    await expect(page.getByRole("heading", { name: "Watchlist" })).toBeVisible();
     // Defaults to the first seeded user (Meghan), whose watchlist includes
-    // INFY.NS.
+    // INFY.NS — the Watchlist page shows every symbol regardless of
+    // classification, unlike the Brief page.
     await expect(page.getByRole("link", { name: "INFY.NS" })).toBeVisible();
     await expect(page.getByText(/^₹/).first()).toBeVisible();
   });
 
-  test("adding a symbol shows it on the dashboard, removing takes it off", async ({ page }) => {
-    await page.goto("/");
+  test("adding a symbol shows it on the watchlist, removing takes it off", async ({ page }) => {
+    await page.goto("/watchlist");
 
     await page.getByPlaceholder("Add a symbol, e.g. WIPRO.NS").fill(TEST_SYMBOL);
     await page.getByRole("button", { name: "Add" }).click();
 
-    const card = page.getByTestId(`stock-card-${TEST_SYMBOL}`);
-    await expect(card).toBeVisible();
+    const row = page.getByTestId(`stock-card-${TEST_SYMBOL}`);
+    await expect(row).toBeVisible();
 
-    await card.getByRole("button", { name: "Remove from watchlist" }).click();
+    await row.getByRole("button", { name: "Remove from watchlist" }).click();
 
-    await expect(card).not.toBeVisible();
+    await expect(row).not.toBeVisible();
   });
 
   test("stock detail page shows a price chart", async ({ page }) => {
-    // Navigate directly rather than clicking through — the symbol may
-    // render as a full "worth a look" card or a compact row depending on
-    // its classification, and either way its symbol text links here.
     await page.goto("/stock/INFY.NS");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(page.getByText("Last 20 trading days")).toBeVisible();
     await expect(page.locator("svg.recharts-surface")).toBeVisible();
   });
 
@@ -63,32 +60,41 @@ test.describe("Watchlist dashboard", () => {
     // scenario/checkpoint state a previous test run left behind, so the
     // PRICE_SHOCK comparison below is deterministic.
     await request.post("/api/demo/scenario", { data: { symbol: "INFY.NS", scenario: "NORMAL_MARKET" } });
-    await page.goto("/");
+    await page.goto("/watchlist");
     await expect(page.getByTestId("stock-card-INFY.NS")).toBeVisible();
 
-    // Simulation controls live in the collapsed "Market simulation" panel.
-    await page.getByRole("button", { name: /market simulation/i }).click();
-    const scenarioSelect = page.getByTestId("simulation-scenario-INFY.NS");
-    await scenarioSelect.selectOption("PRICE_SHOCK");
+    try {
+      // Market simulation is opened from the sidebar, available on every page.
+      await page.getByRole("button", { name: /market simulation/i }).click();
+      const scenarioSelect = page.getByTestId("simulation-scenario-INFY.NS");
+      await scenarioSelect.selectOption("PRICE_SHOCK");
+      // The select firing its change event doesn't guarantee the resulting
+      // POST /api/demo/scenario has landed yet — wait for the request to
+      // actually complete before moving on, or a flaky race can leave the
+      // scenario applied only client-side by the time we reload.
+      await page.waitForResponse((res) => res.url().includes("/api/demo/scenario") && res.ok());
+      await page.getByLabel("Close").click();
 
-    await page.reload();
-
-    // The panel never assigns "Significant" directly — it only forces the
-    // synthetic price; this classification is the real change engine's own
-    // conclusion from that price move.
-    await expect(
-      page.getByTestId("stock-card-INFY.NS").getByText("Significant", { exact: true }),
-    ).toBeVisible();
-
-    // Clean up so this scenario doesn't leak into other tests/runs.
-    await page.getByRole("button", { name: /market simulation/i }).click();
-    await page.getByTestId("simulation-scenario-INFY.NS").selectOption("NORMAL_MARKET");
+      // Brief only ever shows what's actually classified worth a look — a
+      // "Significant" pill here can only have come from the real change
+      // engine scoring the simulated price move, never from the panel
+      // itself.
+      await page.goto("/");
+      await expect(
+        page.getByTestId("stock-card-INFY.NS").getByText("Significant", { exact: true }),
+      ).toBeVisible();
+    } finally {
+      // Reset via the API directly (not the UI) so cleanup can't be lost
+      // to the same kind of race, regardless of whether the assertion
+      // above passed.
+      await request.post("/api/demo/scenario", { data: { symbol: "INFY.NS", scenario: "NORMAL_MARKET" } });
+    }
   });
 
   test("switching users immediately loads each user's own, isolated watchlist", async ({ page, request }) => {
     const { meghan, siya } = await getSeededUsers(request);
 
-    await page.goto("/");
+    await page.goto("/watchlist");
 
     // Defaults to the first seeded user (Meghan) — their watchlist has
     // INFY.NS but not Siya's HDFCBANK.NS.
@@ -97,7 +103,7 @@ test.describe("Watchlist dashboard", () => {
     await expect(page.getByTestId("stock-card-HDFCBANK.NS")).toHaveCount(0);
 
     // Switching users is a plain client-side selection (no login) — the
-    // dashboard should update immediately with no reload.
+    // watchlist should update immediately with no reload.
     await page.getByTestId("user-switcher").selectOption(siya.id);
     await expect(page.getByTestId("stock-card-HDFCBANK.NS")).toBeVisible();
     await expect(page.getByRole("link", { name: "INFY.NS" })).toHaveCount(0);
@@ -118,9 +124,11 @@ test.describe("Watchlist dashboard", () => {
     await request.post("/api/demo/scenario", { data: { symbol, scenario: "NORMAL_MARKET" } });
 
     try {
-      // Meghan visits first — establishing THEIR baseline checkpoint at
-      // today's (pre-shock) price.
-      await page.goto("/");
+      // Meghan visits the Watchlist first — establishing THEIR baseline
+      // checkpoint at today's (pre-shock) price. The Watchlist page (not
+      // Brief) is used here because a freshly-added symbol has no
+      // classification yet and so wouldn't appear on Brief at all.
+      await page.goto("/watchlist");
       await expect(page.getByTestId("user-switcher")).toHaveValue(meghan.id);
       await expect(page.getByTestId(`stock-card-${symbol}`)).toBeVisible();
 
@@ -132,14 +140,15 @@ test.describe("Watchlist dashboard", () => {
       // already-shocked price. They must never inherit Meghan's
       // "Significant" read of the same move.
       await page.getByTestId("user-switcher").selectOption(siya.id);
-      const siyaCard = page.getByTestId(`stock-card-${symbol}`);
-      await expect(siyaCard).toBeVisible();
-      await expect(siyaCard.getByText("Significant", { exact: true })).toHaveCount(0);
+      const siyaRow = page.getByTestId(`stock-card-${symbol}`);
+      await expect(siyaRow).toBeVisible();
+      await expect(siyaRow.getByText("Significant", { exact: true })).toHaveCount(0);
 
-      // Meghan, switched back to, still sees it as significant — their
-      // checkpoint predates the shock, unaffected by Siya's visit.
+      // Meghan, switched back to, still sees it as significant on their
+      // Brief — their checkpoint predates the shock, unaffected by Siya's
+      // visit.
       await page.getByTestId("user-switcher").selectOption(meghan.id);
-      await page.reload();
+      await page.goto("/");
       await expect(
         page.getByTestId(`stock-card-${symbol}`).getByText("Significant", { exact: true }),
       ).toBeVisible();

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { SymbolBriefJSON } from "@/lib/apiTypes";
+import { displayNameFor } from "@/lib/displayNames";
 import { formatObservationTimestamp, formatPct, formatPrice } from "@/lib/format";
 import { ClassificationBadge, FreshnessBadge } from "@/components/Badge";
 import { Evidence } from "@/components/Evidence";
@@ -18,6 +19,8 @@ export function StockCard({
 }) {
   const { symbol, observation, change, explanation } = brief;
   const pct = change?.pctChangeSinceCheckpoint ?? null;
+  const name = displayNameFor(symbol);
+  const previousPrice = change?.previousCheckpoint?.price ?? null;
   // buildReasons() orders reasons by priority, so the first bullet is the
   // primary driver of the classification — a single "why this matters"
   // line, rather than repeating the full reasons list already covered by
@@ -34,14 +37,18 @@ export function StockCard({
           <div className="flex items-center gap-2">
             <Link
               href={`/stock/${encodeURIComponent(symbol)}`}
-              className="font-semibold text-stone-900 hover:underline"
+              className="font-mono font-semibold text-stone-900 hover:underline"
             >
               {symbol}
             </Link>
             {change?.classification && <ClassificationBadge classification={change.classification} />}
           </div>
+          {name && <div className="text-xs text-stone-400">{name}</div>}
           {observation && (
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              {previousPrice !== null ? (
+                <span className="text-stone-400">{formatPrice(previousPrice)} →</span>
+              ) : null}
               <span className="text-lg font-semibold text-stone-900">{formatPrice(observation.price)}</span>
               <span
                 className={

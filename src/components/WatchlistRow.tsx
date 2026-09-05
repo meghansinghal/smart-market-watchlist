@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import type { SymbolBriefJSON } from "@/lib/apiTypes";
+import { displayNameFor } from "@/lib/displayNames";
 import { formatPct, formatPrice } from "@/lib/format";
-import { FreshnessBadge } from "@/components/Badge";
+import { CLASSIFICATION_DOT, FreshnessBadge } from "@/components/Badge";
 
-/** A dense single-line row for stocks with nothing worth flagging — the
- * product's whole point is to filter attention, so these get a fraction of
- * the visual weight a "worth a look" StockCard gets. */
-export function CompactStockRow({
+/** One row in the full Watchlist view — every tracked symbol, regardless
+ * of classification, at a glance. The "Worth a look" full cards on the
+ * Brief page are reserved for what's actually SIGNIFICANT/NOTABLE right
+ * now; this is the comprehensive manage-everything list. */
+export function WatchlistRow({
   brief,
   onRemove,
 }: {
@@ -17,6 +19,8 @@ export function CompactStockRow({
 }) {
   const { symbol, observation, unavailableMessage, change } = brief;
   const pct = change?.pctChangeSinceCheckpoint ?? null;
+  const classification = change?.classification ?? "NORMAL";
+  const name = displayNameFor(symbol);
 
   let changeLabel: string;
   let changeClass = "text-stone-400";
@@ -34,14 +38,20 @@ export function CompactStockRow({
   return (
     <div
       data-testid={`stock-card-${symbol}`}
-      className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+      className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
     >
-      <Link
-        href={`/stock/${encodeURIComponent(symbol)}`}
-        className="min-w-0 truncate font-medium text-stone-700 hover:underline"
-      >
-        {symbol}
-      </Link>
+      <div className="flex min-w-0 items-center gap-3">
+        <span className={`h-2 w-2 shrink-0 rounded-full ${CLASSIFICATION_DOT[classification]}`} aria-hidden />
+        <div className="min-w-0">
+          <Link
+            href={`/stock/${encodeURIComponent(symbol)}`}
+            className="font-mono font-medium text-stone-800 hover:underline"
+          >
+            {symbol}
+          </Link>
+          {name && <div className="truncate text-xs text-stone-400">{name}</div>}
+        </div>
+      </div>
       <div className="flex shrink-0 items-center gap-3">
         {unavailableMessage ? (
           <span className="text-xs text-stone-400" title={unavailableMessage}>
@@ -49,8 +59,10 @@ export function CompactStockRow({
           </span>
         ) : observation ? (
           <>
-            <span className="tabular-nums text-stone-600">{formatPrice(observation.price)}</span>
-            <span className={`w-20 text-right tabular-nums ${changeClass}`}>{changeLabel}</span>
+            <div className="text-right">
+              <div className="tabular-nums text-stone-800">{formatPrice(observation.price)}</div>
+              <div className={`text-xs tabular-nums ${changeClass}`}>{changeLabel}</div>
+            </div>
             <FreshnessBadge freshness={observation.freshness} />
           </>
         ) : null}
