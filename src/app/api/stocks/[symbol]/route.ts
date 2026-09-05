@@ -14,10 +14,13 @@ export async function GET(
     const userId = await requireUserId(request.nextUrl.searchParams.get("userId"));
     const { symbol: rawSymbol } = await params;
     const symbol = decodeURIComponent(rawSymbol);
-    const [brief, historicalBars] = await Promise.all([
-      marketBriefService.getSymbolBrief(userId, symbol),
-      marketDataService.fetchHistorical(symbol, 20),
-    ]);
+    const brief = await marketBriefService.getSymbolBrief(userId, symbol);
+    // Without a current observation, historical bars have nothing to
+    // anchor against and nothing to say about "now" — showing a chart
+    // next to an "unavailable" message would just contradict it. This
+    // also skips a pointless provider call for a symbol we already know
+    // has no valid data.
+    const historicalBars = brief.observation ? await marketDataService.fetchHistorical(symbol, 20) : [];
 
     return NextResponse.json({
       ...brief,
