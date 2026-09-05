@@ -1,4 +1,3 @@
-import { env } from "@/lib/env";
 import { getStaticSnapshot } from "@/server/data/staticSnapshot";
 import type {
   DemoScenario,
@@ -6,6 +5,7 @@ import type {
   HistoricalBar,
   MarketDataResult,
   MarketObservation,
+  ObservationSource,
 } from "@/server/domain/types";
 import {
   dateKey,
@@ -18,9 +18,7 @@ import { historicalRepository } from "@/server/repositories/historicalRepository
 import { observationRepository } from "@/server/repositories/observationRepository";
 import { SyntheticMarketDataProvider } from "@/server/providers/syntheticProvider";
 import { MarketDataError, type IMarketDataProvider } from "@/server/providers/types";
-import { YahooMarketDataProvider } from "@/server/providers/yahooProvider";
 
-const yahooProvider = new YahooMarketDataProvider(env.marketDataTimeoutMs);
 const syntheticProvider = new SyntheticMarketDataProvider();
 
 const LIVE_THRESHOLD_MS = 15 * 60 * 1000;
@@ -38,9 +36,18 @@ function toUtcMidnight(date: Date): Date {
  * healthy state for an observation from the most recent session; STALE is
  * reserved for something older than that (a missed session's worth of
  * updates), so a Friday close doesn't read as broken on Monday morning.
+ *
+ * It also depends on `source`: synthetic data is generated to look like
+ * the latest available price, never a genuine real-time tick, so it must
+ * never be classified LIVE/DELAYED regardless of how recent its own
+ * timestamp is — those two states are reserved for a real provider (see
+ * IMarketDataProvider) that isn't wired up yet. Falling through to the
+ * same day-comparison logic used whenever the market itself is shut still
+ * correctly distinguishes "today's" data from stale older data, without
+ * ever implying it's live.
  */
-export function classifyFreshness(observedAt: Date, now: Date): Freshness {
-  if (isMarketLikelyOpen(now)) {
+export function classifyFreshness(observedAt: Date, now: Date, source: ObservationSource): Freshness {
+  if (isMarketLikelyOpen(now) && source !== "SYNTHETIC") {
     const age = now.getTime() - observedAt.getTime();
     if (age <= LIVE_THRESHOLD_MS) return "LIVE";
     if (age <= DELAYED_THRESHOLD_MS) return "DELAYED";
@@ -57,15 +64,19 @@ async function providerFor(symbol: string): Promise<{
   scenarioUpdatedAt: Date | null;
 }> {
   const { scenario, updatedAt } = await demoScenarioRepository.get(symbol);
-  const useSynthetic = env.marketDataProvider === "synthetic" || scenario !== "NORMAL_MARKET";
-  return { provider: useSynthetic ? syntheticProvider : yahooProvider, scenario, scenarioUpdatedAt: updatedAt };
+  // Only the synthetic provider is wired up for now (see the
+  // "final architecture decisions" this app is deployed under — no
+  // dependency on any external market-data API). A real provider would
+  // plug in here, behind the same IMarketDataProvider interface, without
+  // touching fetchObservation/fetchHistorical below.
+  return { provider: syntheticProvider, scenario, scenarioUpdatedAt: updatedAt };
 }
 
 export const marketDataService = {
   /**
    * Fetch the current observation for a symbol, walking the fallback chain
-   * (live provider → latest valid cache → bundled static snapshot →
-   * unavailable) and never presenting a fallback as live data.
+   * (provider → latest valid cache → bundled static snapshot → unavailable)
+   * and never presenting a fallback as live data.
    */
   async fetchObservation(symbol: string): Promise<MarketDataResult> {
     const now = new Date();
@@ -74,26 +85,30 @@ export const marketDataService = {
     // While the market is closed, the "current" price for a NORMAL_MARKET
     // symbol can't change until the next session — if we already hold
     // exactly that (this session's close), re-fetching would just ask the
-    // provider (burning Yahoo's rate-limit budget in particular) for the
-    // same number again. Demo-scenario overrides skip this: they're a
-    // deliberate request to regenerate, not organic market data. And even
-    // when NORMAL_MARKET is the *current* scenario, the stored observation
-    // might predate a reset from an override (e.g. PRICE_SHOCK → back to
-    // normal) — reusing it would keep serving the override's price forever
-    // until the next session, so only reuse data that was actually
-    // received at or after this symbol's scenario last changed.
+    // provider for the same number again. Demo-scenario overrides skip
+    // this: they're a deliberate request to regenerate, not organic market
+    // data. And even when NORMAL_MARKET is the *current* scenario, the
+    // stored observation might predate a reset from an override (e.g.
+    // PRICE_SHOCK → back to normal) — reusing it would keep serving the
+    // override's price forever until the next session, so only reuse data
+    // that was actually received at or after this symbol's scenario last
+    // changed.
     if (scenario === "NORMAL_MARKET" && !isMarketLikelyOpen(now)) {
       const stored = await observationRepository.latestFor(symbol);
       const staleRelativeToScenario =
         scenarioUpdatedAt !== null && stored !== null && stored.receivedAt < scenarioUpdatedAt;
-      if (stored && !staleRelativeToScenario && classifyFreshness(stored.observedAt, now) === "CLOSED") {
+      if (
+        stored &&
+        !staleRelativeToScenario &&
+        classifyFreshness(stored.observedAt, now, stored.source) === "CLOSED"
+      ) {
         return { ok: true, observation: { ...stored, freshness: "CLOSED" } };
       }
     }
 
     try {
       const raw = await provider.getObservation(symbol, scenario);
-      const freshness = classifyFreshness(raw.observedAt, now);
+      const freshness = classifyFreshness(raw.observedAt, now, raw.source);
       // A demo scenario is an explicit, deliberate override — it must take
       // effect immediately, even if it fabricates an `observedAt` that's
       // "older" than whatever real data happens to be on record. The
@@ -141,8 +156,7 @@ export const marketDataService = {
   async fetchHistorical(symbol: string, days: number): Promise<HistoricalBar[]> {
     // Completed trading days never change once we have them — if the DB
     // already fully covers the requested range, re-fetching the whole
-    // range from the provider on every request is pure waste (and, for
-    // Yahoo, burns rate-limit budget for data that can't have moved).
+    // range from the provider on every request is pure waste.
     const wantedDays = lastNTradingDays(new Date(), days);
     const existing = await historicalRepository.getRecent(symbol, days);
     const existingDates = new Set(existing.map((bar) => dateKey(bar.date)));

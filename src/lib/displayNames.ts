@@ -1,12 +1,15 @@
 /** Company display name + sector label for a curated set of well-known NSE
- * symbols — pure presentation, not business logic, so it lives client-side
- * rather than threading through the API (the server's own symbol→sector
- * mapping that actually drives benchmark selection lives separately in
- * server/domain/sectors.ts, and only covers the 5 originally-seeded
- * symbols; this list is display/search-only and deliberately broader).
- * Unknown symbols (any other real ticker a user types in full) simply get
- * no subtitle and no autocomplete suggestion — they still work fully, just
- * without a friendly name. */
+ * symbols. Originally display-only, this list is now also the whitelist
+ * `watchlistService.add` (server-side) checks a symbol against: with only
+ * the synthetic provider wired up (see marketDataService), there's no
+ * external source of truth left to verify a ticker actually exists, and
+ * the synthetic provider is designed to generate plausible-looking data
+ * for *any* string — so without a whitelist, a typo or made-up symbol like
+ * "HELLO.KS" would sail onto a watchlist same as a real one. Plain data,
+ * safe to import from server code too (server/domain/sectors.ts has its
+ * own, separate symbol→sector mapping that drives benchmark selection for
+ * the 5 originally-seeded symbols specifically; this list is broader and
+ * only concerned with "is this a name we recognize"). */
 interface KnownSymbol {
   symbol: string;
   name: string;
@@ -49,6 +52,10 @@ export function displayNameFor(symbol: string): string | null {
 
 export function sectorLabelFor(symbol: string): string | null {
   return SYMBOL_INFO.get(symbol)?.sector ?? null;
+}
+
+export function isKnownSymbol(symbol: string): boolean {
+  return SYMBOL_INFO.has(symbol);
 }
 
 /** Known symbols whose ticker or company name *starts with* the typed

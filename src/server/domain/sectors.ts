@@ -2,10 +2,10 @@
  * Static symbol → sector → benchmark index mapping.
  *
  * The Meaningful Change Engine wants to know whether a stock's move is
- * "just the sector moving" or genuinely idiosyncratic. Yahoo Finance has
- * decent coverage of a couple of NSE sector indices; anything without a
- * dedicated sector benchmark falls back to the broad NIFTY 50 index, which
- * always exists.
+ * "just the sector moving" or genuinely idiosyncratic, so each symbol maps
+ * to a real NSE sector index symbol here (the same names a real provider
+ * would use); anything without a dedicated sector benchmark falls back to
+ * the broad NIFTY 50 index, which always exists.
  */
 
 export const NIFTY_50 = "^NSEI";

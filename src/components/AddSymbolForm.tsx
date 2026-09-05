@@ -11,8 +11,8 @@ export function AddSymbolForm({ userId, onAdded }: { userId: string; onAdded: ()
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
 
   // Client-side filter over a small curated list of well-known symbols —
-  // no network call, so it works the same in synthetic and Yahoo mode.
-  // Typing a symbol that isn't in this list still works fine when
+  // no network call, so it's independent of which market-data provider is
+  // configured. Typing a symbol that isn't in this list still works fine when
   // submitted directly; it just won't show a suggestion.
   const suggestions = useMemo(() => searchKnownSymbols(symbol), [symbol]);
 

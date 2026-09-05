@@ -2,11 +2,12 @@ import type { RawObservation } from "@/server/domain/types";
 
 /**
  * Bundled last-resort snapshot. This is the final rung of the fallback
- * ladder (Yahoo → latest valid cache → this file → unavailable) — used only
- * when Yahoo is unreachable *and* we have never successfully cached an
- * observation for the symbol (e.g. a brand new deployment with an empty
- * database). It is deliberately small, clearly dated, and always reported
- * to the UI with freshness "STATIC" so it's never mistaken for live data.
+ * ladder (configured provider → latest valid cache → this file →
+ * unavailable) — used only when the provider call fails *and* we have
+ * never successfully cached an observation for the symbol (e.g. a brand
+ * new deployment with an empty database). It is deliberately small,
+ * clearly dated, and always reported to the UI with freshness "STATIC" so
+ * it's never mistaken for live data.
  */
 const SNAPSHOT_OBSERVED_AT = new Date("2026-08-28T10:00:00.000Z");
 

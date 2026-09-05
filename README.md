@@ -8,11 +8,20 @@ LLM.
 
 ## How it works
 
-1. **Market data** — fetched from Yahoo Finance (or a deterministic
-   synthetic provider for offline/demo use), normalized into a
-   `MarketObservation`, and classified by freshness (`LIVE` / `DELAYED` /
-   `CLOSED` / `STALE` / `CACHED` / `STATIC`) so the UI never claims a price
-   is "live" when the market's closed.
+1. **Market data** — this deployment runs entirely on a deterministic
+   synthetic provider: no dependency on Yahoo Finance or any external
+   market-data API. Every symbol's price/volume/history is generated from
+   a seeded random walk (same symbol + same day always produces the same
+   numbers), normalized into a `MarketObservation` exactly like a real
+   provider's data would be, and classified by freshness (`LIVE` /
+   `DELAYED` / `CLOSED` / `STALE` / `CACHED` / `STATIC`). Synthetic data is
+   never classified `LIVE`/`DELAYED` regardless of its own timestamp —
+   those two states are reserved for genuine real-time data from a real
+   provider, so the UI can never present simulated data as live. Business
+   logic depends only on the `IMarketDataProvider` interface, never on a
+   concrete provider — a real one can be added later behind that same
+   interface without touching `marketDataService`, the change engine, or
+   the UI.
 2. **The Meaningful Change Engine** compares the current observation
    against your last checkpoint for that symbol and scores it on four axes
    — price movement, how unusual that move is for the stock's own history,
@@ -68,11 +77,11 @@ scenario selection → SyntheticMarketDataProvider → MarketObservation
 
 A `PRICE_SHOCK` only reads as `SIGNIFICANT` because the engine scored an
 8% move as significant — the same way it would for a real 8% move from
-Yahoo. `STALE_DATA` is classified `LIMITED` via the same freshness/age
-rule real stale data hits. `PROVIDER_FAILURE` triggers the same
-cached → static-snapshot → unavailable fallback chain a genuine outage
-would. See `tests/unit/marketSimulation.test.ts` for the tests that pin
-this down.
+any future provider. `STALE_DATA` is classified `LIMITED` via the same
+freshness/age rule real stale data hits. `PROVIDER_FAILURE` triggers the
+same cached → static-snapshot → unavailable fallback chain a genuine
+outage would. See `tests/unit/marketSimulation.test.ts` for the tests
+that pin this down.
 
 Because the underlying market data is shared, a scenario you force affects
 every user watching that symbol — but since checkpoints are per-user, each
@@ -94,12 +103,18 @@ exactly what this app deliberately doesn't have.
 **Scales for larger watchlists and more users** — the data model already
 supports it: relational tables with proper composite keys, and market data
 fetched and cached once per symbol regardless of how many users are
-watching it (see "Multi-user" above). The one real soft spot is that a
-dashboard load fans out one external-data fetch per watchlist symbol —
-bounded today by the `ConcurrencyLimiter` and the closed-market
-fetch-skip, but not unbounded, and the UI has no pagination. Fine for a
-handful of symbols; a version built for dozens-plus per user would want to
-batch that fan-out into a single provider call and virtualize the list.
+watching it (see "Multi-user" above). With the synthetic provider there's
+no external network call or rate limit to worry about — a dashboard load
+still fans out one provider call per watchlist symbol, but each is a local,
+deterministic computation. If a real provider is added back later behind
+`IMarketDataProvider`, that fan-out becomes a real external-request
+concern again (the app previously used a `ConcurrencyLimiter` for exactly
+this against Yahoo — removed along with the rest of the Yahoo-specific
+code, since nothing depends on it while only the synthetic provider is
+wired up, but the same pattern would come back with a real provider). The
+UI also has no pagination; fine for a handful of symbols, but a version
+built for dozens-plus per user would want to batch that fan-out into a
+single provider call and virtualize the list.
 
 ## Running locally
 
@@ -111,15 +126,43 @@ npm run db:seed           # seed 5 demo users + their watchlists
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). By default
-`MARKET_DATA_PROVIDER=synthetic` in `.env`, so the app runs fully offline
-with deterministic data — set it to `yahoo` to use real market data.
+Open [http://localhost:3000](http://localhost:3000). The app runs fully
+offline on deterministic synthetic data — no external API key or network
+access needed.
+
+## Deployment (Vercel)
+
+1. Import this repository as a new Vercel project.
+2. Add a Postgres database (Vercel's Storage tab, or any hosted Postgres —
+   Neon, Supabase, etc.) and make sure its connection string ends up in a
+   `DATABASE_URL` environment variable on the project (that's the only
+   environment variable this app needs).
+3. Deploy. `postinstall` runs `prisma generate`, and `vercel.json`'s
+   `buildCommand` runs `prisma migrate deploy` before `next build`, so
+   schema migrations apply automatically on every deploy — no manual
+   migration step. (This is Vercel-specific, not part of the plain
+   `npm run build` script, since a local Docker image build has no
+   reachable database to migrate against at build time — see the
+   `Dockerfile`, which already runs migrations at container start
+   instead.)
+4. After the first successful deploy, seed the 5 demo users once, pointed
+   at the production database:
+   ```bash
+   DATABASE_URL="<production connection string>" npx tsx prisma/seed.ts
+   ```
+   The seed is idempotent (upsert-based), so re-running it later is safe.
+
+The deployed app uses only the synthetic provider — see "Market data"
+above for why that's a deliberate choice, not a limitation: every number
+shown is clearly simulated (never classified `LIVE`), and Market
+Simulation demonstrates the full real classification pipeline on demand
+without depending on any external service staying up.
 
 ## Testing
 
 ```bash
 npm run test       # unit tests (vitest)
-npm run test:e2e   # end-to-end tests (playwright), synthetic mode
+npm run test:e2e   # end-to-end tests (playwright)
 npm run typecheck
 npm run lint
 ```

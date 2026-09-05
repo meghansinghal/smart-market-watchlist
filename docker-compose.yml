@@ -26,7 +26,6 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://whatdidimiss:whatdidimiss@db:5432/whatdidimiss
-      MARKET_DATA_PROVIDER: synthetic
       NODE_ENV: production
     ports:
       - "3000:3000"

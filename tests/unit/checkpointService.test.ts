@@ -23,7 +23,7 @@ function observation(overrides: Partial<MarketObservation> = {}): MarketObservat
     volume: 1_000_000,
     observedAt: new Date(),
     receivedAt: new Date(),
-    source: "YAHOO",
+    source: "SYNTHETIC",
     freshness: "LIVE",
     ...overrides,
   };

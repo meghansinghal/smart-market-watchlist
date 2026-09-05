@@ -1,6 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-const TEST_SYMBOL = "E2ETEST.NS";
+// A real symbol from the curated known-symbol whitelist (see
+// lib/displayNames.ts) that isn't already on any seeded demo user's
+// watchlist — adding used to accept any shape-valid ticker, but now that
+// only the synthetic provider is wired up, adds are restricted to that
+// whitelist (see watchlistService.add), so a made-up symbol like
+// "E2ETEST.NS" would no longer be accepted here.
+const TEST_SYMBOL = "WIPRO.NS";
 
 async function getSeededUsers(request: import("@playwright/test").APIRequestContext) {
   const res = await request.get("/api/users");
@@ -114,7 +120,9 @@ test.describe("Watchlist app", () => {
     request,
   }) => {
     const { meghan, siya } = await getSeededUsers(request);
-    const symbol = "ISOTEST.NS";
+    // Also from the known-symbol whitelist, and distinct from TEST_SYMBOL
+    // above so the two tests can't collide with each other's watchlist state.
+    const symbol = "HCLTECH.NS";
 
     // Both users track the exact same symbol, so they're comparing the
     // same shared MarketObservation history — any difference in what they

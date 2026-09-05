@@ -33,7 +33,6 @@ vi.mock("@/server/repositories/historicalRepository", () => ({
 vi.mock("@/server/repositories/demoScenarioRepository", () => ({
   demoScenarioRepository: demoScenarioRepositoryMock,
 }));
-vi.mock("@/lib/env", () => ({ env: { marketDataProvider: "synthetic", marketDataTimeoutMs: 1000 } }));
 
 const provider = new SyntheticMarketDataProvider();
 
@@ -122,7 +121,7 @@ describe("Market Simulation → Meaningful Change Engine pipeline integrity", ()
     const now = new Date();
     const stale = await provider.getObservation("INFY.NS", "STALE_DATA");
 
-    const freshness = classifyFreshness(stale.observedAt, now);
+    const freshness = classifyFreshness(stale.observedAt, now, "SYNTHETIC");
     expect(freshness).toBe("STALE");
 
     const status = assessDataStatus({ freshness, observedAt: stale.observedAt }, now);

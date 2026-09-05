@@ -34,7 +34,8 @@ export const demoService = {
   },
 
   /** Reverts every symbol back to NORMAL_MARKET, i.e. back to whatever the
-   * globally configured provider (Yahoo or synthetic) would show. */
+   * configured provider (the synthetic provider, for now — see
+   * IMarketDataProvider) would show. */
   async reset(): Promise<void> {
     await demoScenarioRepository.resetAll();
   },

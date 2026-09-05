@@ -14,9 +14,7 @@ const demoScenarioRepositoryMock = {
   get: vi.fn().mockResolvedValue({ scenario: "NORMAL_MARKET", updatedAt: null }),
 };
 
-const yahooGetObservation = vi.fn();
 const syntheticGetObservation = vi.fn();
-const yahooGetHistorical = vi.fn().mockResolvedValue([]);
 const syntheticGetHistorical = vi.fn().mockResolvedValue([]);
 
 vi.mock("@/server/repositories/observationRepository", () => ({
@@ -28,19 +26,12 @@ vi.mock("@/server/repositories/historicalRepository", () => ({
 vi.mock("@/server/repositories/demoScenarioRepository", () => ({
   demoScenarioRepository: demoScenarioRepositoryMock,
 }));
-vi.mock("@/server/providers/yahooProvider", () => ({
-  YahooMarketDataProvider: class {
-    getObservation = yahooGetObservation;
-    getHistorical = yahooGetHistorical;
-  },
-}));
 vi.mock("@/server/providers/syntheticProvider", () => ({
   SyntheticMarketDataProvider: class {
     getObservation = syntheticGetObservation;
     getHistorical = syntheticGetHistorical;
   },
 }));
-vi.mock("@/lib/env", () => ({ env: { marketDataProvider: "yahoo", marketDataTimeoutMs: 1000 } }));
 
 const { marketDataService, classifyFreshness } = await import("@/server/services/marketDataService");
 const { MarketDataError } = await import("@/server/providers/types");
@@ -61,13 +52,13 @@ afterEach(() => {
 });
 
 describe("marketDataService.fetchObservation fallback chain", () => {
-  it("returns a LIVE observation and persists it when the provider succeeds", async () => {
-    yahooGetObservation.mockResolvedValueOnce({
+  it("returns an observation and persists it when the provider succeeds", async () => {
+    syntheticGetObservation.mockResolvedValueOnce({
       symbol: "INFY.NS",
       price: 1600,
       volume: 1_000_000,
-      observedAt: new Date(),
-      source: "YAHOO",
+      observedAt: new Date("2026-09-04T09:45:00Z"), // last close, per the synthetic provider's own contract
+      source: "SYNTHETIC",
     });
     observationRepositoryMock.saveIfNewer.mockImplementationOnce(async (raw, freshness) => ({
       id: "obs-1",
@@ -79,14 +70,14 @@ describe("marketDataService.fetchObservation fallback chain", () => {
     const result = await marketDataService.fetchObservation("INFY.NS");
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.observation.freshness).toBe("LIVE");
-      expect(result.observation.source).toBe("YAHOO");
+      expect(result.observation.freshness).toBe("CLOSED");
+      expect(result.observation.source).toBe("SYNTHETIC");
     }
     expect(observationRepositoryMock.saveIfNewer).toHaveBeenCalledOnce();
   });
 
   it("falls back to the latest cached observation when the provider fails, and labels it CACHED", async () => {
-    yahooGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "INFY.NS"));
+    syntheticGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "INFY.NS"));
     observationRepositoryMock.latestFor.mockResolvedValueOnce({
       id: "obs-old",
       symbol: "INFY.NS",
@@ -94,8 +85,8 @@ describe("marketDataService.fetchObservation fallback chain", () => {
       volume: 900_000,
       observedAt: new Date(Date.now() - 60 * 60 * 1000),
       receivedAt: new Date(Date.now() - 60 * 60 * 1000),
-      source: "YAHOO",
-      freshness: "LIVE",
+      source: "SYNTHETIC",
+      freshness: "CLOSED",
     });
 
     const result = await marketDataService.fetchObservation("INFY.NS");
@@ -107,7 +98,7 @@ describe("marketDataService.fetchObservation fallback chain", () => {
   });
 
   it("falls back to the static snapshot when the provider fails and there is no cache", async () => {
-    yahooGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "INFY.NS"));
+    syntheticGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "INFY.NS"));
     observationRepositoryMock.latestFor.mockResolvedValueOnce(null);
     observationRepositoryMock.saveIfNewer.mockImplementationOnce(async (raw, freshness) => ({
       id: "obs-static",
@@ -125,7 +116,7 @@ describe("marketDataService.fetchObservation fallback chain", () => {
   });
 
   it("reports unavailable — never silently swallowed — when every rung fails", async () => {
-    yahooGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "UNKNOWN.NS"));
+    syntheticGetObservation.mockRejectedValueOnce(new MarketDataError("boom", "UNKNOWN.NS"));
     observationRepositoryMock.latestFor.mockResolvedValueOnce(null);
 
     const result = await marketDataService.fetchObservation("UNKNOWN.NS");
@@ -134,28 +125,6 @@ describe("marketDataService.fetchObservation fallback chain", () => {
       expect(result.reason).toBe("unavailable");
       expect(result.message).toContain("UNKNOWN.NS");
     }
-  });
-
-  it("routes a symbol with an active demo scenario through the synthetic provider even in yahoo mode", async () => {
-    demoScenarioRepositoryMock.get.mockResolvedValueOnce({ scenario: "PRICE_SHOCK", updatedAt: new Date() });
-    syntheticGetObservation.mockResolvedValueOnce({
-      symbol: "INFY.NS",
-      price: 1400,
-      volume: 2_000_000,
-      observedAt: new Date(),
-      source: "SYNTHETIC",
-    });
-    observationRepositoryMock.save.mockImplementationOnce(async (raw, freshness) => ({
-      id: "obs-shock",
-      ...raw,
-      receivedAt: new Date(),
-      freshness,
-    }));
-
-    const result = await marketDataService.fetchObservation("INFY.NS");
-    expect(syntheticGetObservation).toHaveBeenCalledWith("INFY.NS", "PRICE_SHOCK");
-    expect(yahooGetObservation).not.toHaveBeenCalled();
-    expect(result.ok).toBe(true);
   });
 
   it("bypasses the newest-wins guard for an active demo scenario, so switching scenarios always takes effect", async () => {
@@ -191,13 +160,13 @@ describe("marketDataService.fetchObservation fallback chain", () => {
       volume: 5_000_000,
       observedAt: new Date("2026-09-04T09:45:00Z"), // today's last trade
       receivedAt: new Date("2026-09-04T09:45:01Z"),
-      source: "YAHOO",
+      source: "SYNTHETIC",
       freshness: "CLOSED",
     });
 
     const result = await marketDataService.fetchObservation("INFY.NS");
 
-    expect(yahooGetObservation).not.toHaveBeenCalled();
+    expect(syntheticGetObservation).not.toHaveBeenCalled();
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.observation.freshness).toBe("CLOSED");
@@ -226,12 +195,12 @@ describe("marketDataService.fetchObservation fallback chain", () => {
       source: "SYNTHETIC",
       freshness: "CLOSED",
     });
-    yahooGetObservation.mockResolvedValueOnce({
+    syntheticGetObservation.mockResolvedValueOnce({
       symbol: "INFY.NS",
       price: 1494.62, // the genuine normal price
       volume: 8_000_000,
       observedAt: new Date("2026-09-04T09:45:00Z"),
-      source: "YAHOO",
+      source: "SYNTHETIC",
     });
     observationRepositoryMock.saveIfNewer.mockImplementationOnce(async (raw, freshness) => ({
       id: "obs-fresh",
@@ -242,7 +211,7 @@ describe("marketDataService.fetchObservation fallback chain", () => {
 
     const result = await marketDataService.fetchObservation("INFY.NS");
 
-    expect(yahooGetObservation).toHaveBeenCalledOnce();
+    expect(syntheticGetObservation).toHaveBeenCalledOnce();
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.observation.price).toBe(1494.62);
   });
@@ -256,15 +225,15 @@ describe("marketDataService.fetchObservation fallback chain", () => {
       volume: 1_000_000,
       observedAt: new Date("2026-09-01T09:45:00Z"), // days before the most recent session
       receivedAt: new Date("2026-09-01T09:45:01Z"),
-      source: "YAHOO",
+      source: "SYNTHETIC",
       freshness: "CLOSED",
     });
-    yahooGetObservation.mockResolvedValueOnce({
+    syntheticGetObservation.mockResolvedValueOnce({
       symbol: "INFY.NS",
       price: 1130,
       volume: 5_000_000,
       observedAt: new Date("2026-09-04T09:45:00Z"),
-      source: "YAHOO",
+      source: "SYNTHETIC",
     });
     observationRepositoryMock.saveIfNewer.mockImplementationOnce(async (raw, freshness) => ({
       id: "obs-new",
@@ -275,7 +244,7 @@ describe("marketDataService.fetchObservation fallback chain", () => {
 
     const result = await marketDataService.fetchObservation("INFY.NS");
 
-    expect(yahooGetObservation).toHaveBeenCalledOnce();
+    expect(syntheticGetObservation).toHaveBeenCalledOnce();
     expect(result.ok).toBe(true);
   });
 
@@ -289,7 +258,7 @@ describe("marketDataService.fetchObservation fallback chain", () => {
       volume: 5_000_000,
       observedAt: new Date("2026-09-04T09:45:00Z"),
       receivedAt: new Date("2026-09-04T09:45:01Z"),
-      source: "YAHOO",
+      source: "SYNTHETIC",
       freshness: "CLOSED",
     });
     syntheticGetObservation.mockResolvedValueOnce({
@@ -323,19 +292,19 @@ describe("marketDataService.fetchHistorical", () => {
 
     const bars = await marketDataService.fetchHistorical("INFY.NS", 5);
 
-    expect(yahooGetHistorical).not.toHaveBeenCalled();
+    expect(syntheticGetHistorical).not.toHaveBeenCalled();
     expect(bars).toHaveLength(5);
   });
 
   it("calls the provider and persists the result when coverage is incomplete", async () => {
     historicalRepositoryMock.getRecent.mockResolvedValueOnce([]);
-    yahooGetHistorical.mockResolvedValueOnce([
+    syntheticGetHistorical.mockResolvedValueOnce([
       { symbol: "INFY.NS", date: new Date("2026-09-03T03:45:00Z"), close: 1130, volume: 5_000_000 },
     ]);
 
     const bars = await marketDataService.fetchHistorical("INFY.NS", 5);
 
-    expect(yahooGetHistorical).toHaveBeenCalledOnce();
+    expect(syntheticGetHistorical).toHaveBeenCalledOnce();
     expect(historicalRepositoryMock.upsertMany).toHaveBeenCalledOnce();
     expect(bars).toHaveLength(1);
   });
@@ -343,7 +312,7 @@ describe("marketDataService.fetchHistorical", () => {
   it("falls back to whatever's already stored if the provider call fails", async () => {
     const existing = [{ symbol: "INFY.NS", date: new Date("2026-09-03T03:45:00Z"), close: 1130, volume: 5_000_000 }];
     historicalRepositoryMock.getRecent.mockResolvedValueOnce(existing);
-    yahooGetHistorical.mockRejectedValueOnce(new MarketDataError("boom", "INFY.NS"));
+    syntheticGetHistorical.mockRejectedValueOnce(new MarketDataError("boom", "INFY.NS"));
 
     const bars = await marketDataService.fetchHistorical("INFY.NS", 5);
 
@@ -356,39 +325,47 @@ describe("classifyFreshness", () => {
   const marketClosedAfterHours = new Date("2026-09-04T12:00:00Z"); // Friday, 17:30 IST
   const mondayPreOpen = new Date("2026-09-07T02:00:00Z"); // Monday, 07:30 IST
 
-  it("is LIVE for a recent observation while the market is open", () => {
+  it("is LIVE for a recent observation from a real provider while the market is open", () => {
     const observedAt = new Date(marketOpen.getTime() - 5 * 60 * 1000);
-    expect(classifyFreshness(observedAt, marketOpen)).toBe("LIVE");
+    expect(classifyFreshness(observedAt, marketOpen, "YAHOO")).toBe("LIVE");
   });
 
-  it("is DELAYED for an older-but-same-session observation while the market is open", () => {
+  it("is DELAYED for an older-but-same-session observation from a real provider while the market is open", () => {
     const observedAt = new Date(marketOpen.getTime() - 60 * 60 * 1000);
-    expect(classifyFreshness(observedAt, marketOpen)).toBe("DELAYED");
+    expect(classifyFreshness(observedAt, marketOpen, "YAHOO")).toBe("DELAYED");
   });
 
-  it("is STALE if data hasn't updated in hours while the market is open", () => {
+  it("is STALE if a real provider's data hasn't updated in hours while the market is open", () => {
     const observedAt = new Date(marketOpen.getTime() - 7 * 60 * 60 * 1000);
-    expect(classifyFreshness(observedAt, marketOpen)).toBe("STALE");
+    expect(classifyFreshness(observedAt, marketOpen, "YAHOO")).toBe("STALE");
   });
 
   it("is never LIVE once the market has closed, even for a very recent timestamp", () => {
     const observedAt = new Date(marketClosedAfterHours.getTime() - 2 * 60 * 1000);
-    expect(classifyFreshness(observedAt, marketClosedAfterHours)).not.toBe("LIVE");
-    expect(classifyFreshness(observedAt, marketClosedAfterHours)).toBe("CLOSED");
+    expect(classifyFreshness(observedAt, marketClosedAfterHours, "YAHOO")).not.toBe("LIVE");
+    expect(classifyFreshness(observedAt, marketClosedAfterHours, "YAHOO")).toBe("CLOSED");
   });
 
   it("labels today's close as CLOSED right after the market closes", () => {
     const observedAt = new Date("2026-09-04T09:45:00Z"); // 15:15 IST, just before close
-    expect(classifyFreshness(observedAt, marketClosedAfterHours)).toBe("CLOSED");
+    expect(classifyFreshness(observedAt, marketClosedAfterHours, "SYNTHETIC")).toBe("CLOSED");
   });
 
   it("labels Friday's close as CLOSED on Monday morning before the market opens", () => {
     const fridayClose = new Date("2026-09-04T09:50:00Z"); // Friday, 15:20 IST
-    expect(classifyFreshness(fridayClose, mondayPreOpen)).toBe("CLOSED");
+    expect(classifyFreshness(fridayClose, mondayPreOpen, "SYNTHETIC")).toBe("CLOSED");
   });
 
   it("labels data older than the most recent session as STALE while the market is closed", () => {
     const twoTradingDaysAgo = new Date("2026-09-02T09:50:00Z"); // Wednesday close
-    expect(classifyFreshness(twoTradingDaysAgo, mondayPreOpen)).toBe("STALE");
+    expect(classifyFreshness(twoTradingDaysAgo, mondayPreOpen, "SYNTHETIC")).toBe("STALE");
+  });
+
+  it("is never LIVE or DELAYED for synthetic data, even with a fresh timestamp while the market is open", () => {
+    // This is the core "never present simulated data as live" guarantee:
+    // a real provider's fresh quote would read LIVE here (see the first
+    // test above), but synthetic data must not, regardless of age.
+    const justNow = new Date(marketOpen.getTime() - 5 * 1000);
+    expect(classifyFreshness(justNow, marketOpen, "SYNTHETIC")).toBe("CLOSED");
   });
 });

@@ -4,6 +4,10 @@
  * logic never has to know it's talking to Postgres.
  */
 
+// "YAHOO" is unused while only the synthetic provider is wired up (see
+// IMarketDataProvider) — kept in the schema/type as the reserved value a
+// future real provider would write, so adding one back doesn't need a
+// migration.
 export type ObservationSource = "YAHOO" | "SYNTHETIC" | "STATIC_SNAPSHOT";
 
 export type Freshness =
