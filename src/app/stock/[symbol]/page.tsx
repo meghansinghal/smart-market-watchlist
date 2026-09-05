@@ -4,20 +4,21 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 import useSWR from "swr";
-import type { ChangeClassification, DataStatus } from "@/lib/apiTypes";
+import type { DataStatus } from "@/lib/apiTypes";
 import { apiClient, ApiError } from "@/lib/apiClient";
 import { useCurrentUser } from "@/lib/CurrentUserContext";
-import { displayNameFor, sectorLabelFor } from "@/lib/displayNames";
+import { benchmarkNameFor, displayNameFor, sectorLabelFor } from "@/lib/displayNames";
 import { formatDate, formatObservationTimestamp, formatPct, formatPrice, formatVolume } from "@/lib/format";
+import { classificationTone, TONE_CALLOUT, TONE_TEXT, type Tone } from "@/lib/tone";
 import { ClassificationBadge, FreshnessBadge } from "@/components/Badge";
 import { Evidence } from "@/components/Evidence";
 import { PriceChart } from "@/components/PriceChart";
 
-function calloutTone(classification: ChangeClassification | null, dataStatus: DataStatus | undefined): string {
-  if (dataStatus === "LIMITED") return "border-amber-200 bg-amber-50";
-  if (classification === "SIGNIFICANT") return "border-amber-200 bg-amber-50";
-  if (classification === "NOTABLE") return "border-blue-200 bg-blue-50";
-  return "border-green-200 bg-green-50";
+// A stale/limited data status is a caution regardless of what the last
+// good classification was, so it overrides the usual tone.
+function calloutTone(tone: Tone, dataStatus: DataStatus | undefined): string {
+  if (dataStatus === "LIMITED") return TONE_CALLOUT.amber;
+  return TONE_CALLOUT[tone];
 }
 
 export default function StockDetailPage() {
@@ -33,6 +34,7 @@ export default function StockDetailPage() {
   const error = fetchError instanceof ApiError ? fetchError.message : fetchError ? "Couldn't load this stock." : null;
   const committedObservationId = useRef<string | null>(null);
   const pct = detail?.change?.pctChangeSinceCheckpoint ?? null;
+  const tone = classificationTone(detail?.change?.classification, pct);
   const name = displayNameFor(symbol);
   const sector = sectorLabelFor(symbol);
 
@@ -60,7 +62,7 @@ export default function StockDetailPage() {
             <div className="flex items-center gap-2">
               <h1 className="font-mono text-2xl font-bold tracking-tight text-stone-900">{detail.symbol}</h1>
               {detail.change?.classification && (
-                <ClassificationBadge classification={detail.change.classification} />
+                <ClassificationBadge classification={detail.change.classification} pct={pct} />
               )}
             </div>
             {(name || sector) && (
@@ -72,7 +74,7 @@ export default function StockDetailPage() {
                   {formatPrice(detail.observation.price)}
                 </span>
                 {pct !== null && (
-                  <span className={pct > 0 ? "text-green-700" : pct < 0 ? "text-red-700" : "text-stone-500"}>
+                  <span className={pct === 0 ? "text-stone-500" : `font-medium ${TONE_TEXT[tone]}`}>
                     {pct === 0 ? "No change" : formatPct(pct)} since last visit
                   </span>
                 )}
@@ -97,15 +99,16 @@ export default function StockDetailPage() {
                   ? { date: detail.change.previousCheckpoint.observedAt, price: detail.change.previousCheckpoint.price }
                   : null
               }
+              tone={tone}
             />
             <p className="mt-1 text-xs text-stone-400">
-              Last {detail.historicalBars.length} trading days · benchmark {detail.benchmarkSymbol}
+              Last {detail.historicalBars.length} trading days · benchmark {benchmarkNameFor(detail.benchmarkSymbol)}
             </p>
           </section>
 
           {detail.explanation && (
-            <div className={`rounded-xl border p-4 ${calloutTone(detail.change?.classification ?? null, detail.change?.dataStatus)}`}>
-              <p className="font-medium text-stone-800">{detail.explanation.headline}</p>
+            <div className={`rounded-xl border p-4 ${calloutTone(tone, detail.change?.dataStatus)}`}>
+              <p className="text-base font-semibold text-stone-900">{detail.explanation.headline}</p>
               {detail.explanation.bullets.length > 0 && !detail.change?.scores && (
                 <ul className="mt-2 list-disc space-y-1 pl-4 text-sm text-stone-600">
                   {detail.explanation.bullets.map((bullet, i) => (
@@ -120,6 +123,8 @@ export default function StockDetailPage() {
                     pctChangeSinceCheckpoint={pct}
                     benchmarkSymbol={detail.change.benchmarkSymbol}
                     reasons={detail.change.reasons}
+                    historicalCloses={detail.historicalBars.map((b) => b.close)}
+                    volume={detail.observation?.volume ?? null}
                   />
                 </div>
               )}

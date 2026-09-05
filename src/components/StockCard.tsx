@@ -1,15 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import useSWR from "swr";
 import type { SymbolBriefJSON } from "@/lib/apiTypes";
+import { apiClient } from "@/lib/apiClient";
+import { useCurrentUser } from "@/lib/CurrentUserContext";
 import { displayNameFor } from "@/lib/displayNames";
 import { formatObservationTimestamp, formatPct, formatPrice } from "@/lib/format";
+import { classificationTone, TONE_BORDER, TONE_SOFT_BG, TONE_TEXT } from "@/lib/tone";
 import { ClassificationBadge, FreshnessBadge } from "@/components/Badge";
 import { Evidence } from "@/components/Evidence";
+import { PriceChart } from "@/components/PriceChart";
 
 /** The full-detail "worth a look" card — reserved for SIGNIFICANT/NOTABLE
- * stocks. Normal/unchanged stocks use CompactStockRow instead, so
- * attention is spent where something actually happened. */
+ * stocks. Normal/unchanged stocks use WatchlistRow instead, so attention is
+ * spent where something actually happened. */
 export function StockCard({
   brief,
   onRemove,
@@ -19,6 +24,8 @@ export function StockCard({
 }) {
   const { symbol, observation, change, explanation } = brief;
   const pct = change?.pctChangeSinceCheckpoint ?? null;
+  const classification = change?.classification ?? null;
+  const tone = classificationTone(classification, pct);
   const name = displayNameFor(symbol);
   const previousPrice = change?.previousCheckpoint?.price ?? null;
   // buildReasons() orders reasons by priority, so the first bullet is the
@@ -26,6 +33,18 @@ export function StockCard({
   // line, rather than repeating the full reasons list already covered by
   // the evidence tiles below.
   const whyThisMatters = explanation?.bullets[0] ?? explanation?.headline ?? null;
+
+  const { userId } = useCurrentUser();
+  // Only fetch historical bars for a symbol worth showing a sparkline for —
+  // the dashboard payload this card was built from doesn't include them,
+  // so this reuses the existing per-stock endpoint (same one the detail
+  // page uses, and the same SWR key, so the cache is shared) rather than
+  // changing the dashboard API to carry more data than it needs to.
+  const showChart = classification === "SIGNIFICANT" || classification === "NOTABLE";
+  const { data: detail } = useSWR(
+    showChart && userId ? ["stock", symbol, userId] : null,
+    () => apiClient.getStock(userId!, symbol),
+  );
 
   return (
     <div
@@ -41,7 +60,7 @@ export function StockCard({
             >
               {symbol}
             </Link>
-            {change?.classification && <ClassificationBadge classification={change.classification} />}
+            {classification && <ClassificationBadge classification={classification} pct={pct} />}
           </div>
           {name && <div className="text-xs text-stone-400">{name}</div>}
           {observation && (
@@ -50,15 +69,7 @@ export function StockCard({
                 <span className="text-stone-400">{formatPrice(previousPrice)} →</span>
               ) : null}
               <span className="text-lg font-semibold text-stone-900">{formatPrice(observation.price)}</span>
-              <span
-                className={
-                  pct !== null && pct > 0
-                    ? "font-medium text-green-700"
-                    : pct !== null && pct < 0
-                      ? "font-medium text-red-700"
-                      : "text-stone-500"
-                }
-              >
+              <span className={pct === 0 || pct === null ? "text-stone-500" : `font-medium ${TONE_TEXT[tone]}`}>
                 {pct === 0 ? "No change" : formatPct(pct)}
               </span>
             </div>
@@ -74,12 +85,25 @@ export function StockCard({
         </button>
       </div>
 
+      {showChart && detail && detail.historicalBars.length > 0 && (
+        <div className="mt-2">
+          <PriceChart
+            bars={detail.historicalBars}
+            current={
+              detail.observation ? { date: detail.observation.observedAt, price: detail.observation.price } : null
+            }
+            tone={tone}
+            compact
+          />
+        </div>
+      )}
+
       {whyThisMatters && (
-        <div className="mt-3">
-          <div className="text-[10px] font-medium tracking-wide text-stone-400 uppercase">
+        <div className={`mt-3 rounded-lg border-l-4 py-2 pl-3 pr-2 ${TONE_BORDER[tone]} ${TONE_SOFT_BG[tone]}`}>
+          <div className={`text-[10px] font-semibold tracking-wide uppercase ${TONE_TEXT[tone]}`}>
             Why this matters
           </div>
-          <p className="mt-0.5 text-sm text-stone-700">{whyThisMatters}</p>
+          <p className="mt-0.5 text-sm font-medium text-stone-800">{whyThisMatters}</p>
         </div>
       )}
 
@@ -90,6 +114,8 @@ export function StockCard({
             pctChangeSinceCheckpoint={pct}
             benchmarkSymbol={change.benchmarkSymbol}
             reasons={change.reasons}
+            historicalCloses={detail?.historicalBars.map((b) => b.close) ?? null}
+            volume={observation?.volume ?? null}
           />
         </div>
       )}

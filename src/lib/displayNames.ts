@@ -21,3 +21,15 @@ export function displayNameFor(symbol: string): string | null {
 export function sectorLabelFor(symbol: string): string | null {
   return SYMBOL_INFO[symbol]?.sector ?? null;
 }
+
+// Mirrors server/domain/sectors.ts's small, fixed set of benchmark index
+// symbols — display-only, same reasoning as SYMBOL_INFO above.
+const BENCHMARK_NAMES: Record<string, string> = {
+  "^NSEI": "NIFTY 50",
+  "^CNXIT": "NIFTY IT",
+  "^NSEBANK": "NIFTY BANK",
+};
+
+export function benchmarkNameFor(symbol: string): string {
+  return BENCHMARK_NAMES[symbol] ?? symbol;
+}

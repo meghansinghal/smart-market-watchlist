@@ -1,20 +1,5 @@
 import type { ChangeClassification, Freshness } from "@/lib/apiTypes";
-
-// Deliberately not red/green: classification is about *magnitude of
-// attention-worthiness*, not good-news/bad-news — a SIGNIFICANT move can
-// easily be a big gain. Red/green stay reserved for price direction
-// elsewhere, so a pill never fights the price number next to it.
-const CLASSIFICATION_STYLES: Record<ChangeClassification, string> = {
-  SIGNIFICANT: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200",
-  NOTABLE: "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200",
-  NORMAL: "bg-stone-100 text-stone-500 ring-1 ring-inset ring-stone-200",
-};
-
-export const CLASSIFICATION_DOT: Record<ChangeClassification, string> = {
-  SIGNIFICANT: "bg-amber-500",
-  NOTABLE: "bg-blue-500",
-  NORMAL: "bg-stone-300",
-};
+import { classificationTone, TONE_BADGE } from "@/lib/tone";
 
 const CLASSIFICATION_LABEL: Record<ChangeClassification, string> = {
   SIGNIFICANT: "Significant",
@@ -22,10 +7,20 @@ const CLASSIFICATION_LABEL: Record<ChangeClassification, string> = {
   NORMAL: "Normal",
 };
 
-export function ClassificationBadge({ classification }: { classification: ChangeClassification }) {
+/** `pct` (change since checkpoint) decides SIGNIFICANT's color — green for
+ * a gain, red for a loss. NOTABLE is always amber and NORMAL always grey,
+ * regardless of direction; see lib/tone.ts. */
+export function ClassificationBadge({
+  classification,
+  pct,
+}: {
+  classification: ChangeClassification;
+  pct?: number | null;
+}) {
+  const tone = classificationTone(classification, pct);
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${CLASSIFICATION_STYLES[classification]}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE_BADGE[tone]}`}
     >
       {CLASSIFICATION_LABEL[classification]}
     </span>

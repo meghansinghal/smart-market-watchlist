@@ -4,7 +4,8 @@ import Link from "next/link";
 import type { SymbolBriefJSON } from "@/lib/apiTypes";
 import { displayNameFor } from "@/lib/displayNames";
 import { formatPct, formatPrice } from "@/lib/format";
-import { CLASSIFICATION_DOT, FreshnessBadge } from "@/components/Badge";
+import { classificationTone, TONE_DOT, TONE_TEXT } from "@/lib/tone";
+import { FreshnessBadge } from "@/components/Badge";
 
 /** One row in the full Watchlist view — every tracked symbol, regardless
  * of classification, at a glance. The "Worth a look" full cards on the
@@ -19,7 +20,7 @@ export function WatchlistRow({
 }) {
   const { symbol, observation, unavailableMessage, change } = brief;
   const pct = change?.pctChangeSinceCheckpoint ?? null;
-  const classification = change?.classification ?? "NORMAL";
+  const tone = classificationTone(change?.classification, pct);
   const name = displayNameFor(symbol);
 
   let changeLabel: string;
@@ -30,7 +31,7 @@ export function WatchlistRow({
     changeLabel = "No change";
   } else if (pct !== null) {
     changeLabel = formatPct(pct);
-    changeClass = pct > 0 ? "text-green-700" : "text-red-700";
+    changeClass = TONE_TEXT[tone];
   } else {
     changeLabel = "—";
   }
@@ -41,7 +42,7 @@ export function WatchlistRow({
       className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
     >
       <div className="flex min-w-0 items-center gap-3">
-        <span className={`h-2 w-2 shrink-0 rounded-full ${CLASSIFICATION_DOT[classification]}`} aria-hidden />
+        <span className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone]}`} aria-hidden />
         <div className="min-w-0">
           <Link
             href={`/stock/${encodeURIComponent(symbol)}`}

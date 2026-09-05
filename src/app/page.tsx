@@ -84,15 +84,25 @@ export default function BriefPage() {
             </div>
             <div className="text-xs text-stone-400">{formatRelativeTime(dashboard.generatedAt)}</div>
           </div>
-          <div className="mt-3 flex items-stretch gap-6">
-            <div>
-              <div className="font-mono text-3xl font-bold text-amber-700">{worthALook.length}</div>
-              <div className="text-sm text-stone-500">meaningful change{worthALook.length === 1 ? "" : "s"}</div>
+          <div className="mt-3 flex flex-wrap items-end gap-4">
+            <div
+              className={`flex items-baseline gap-2 rounded-xl px-3 py-1.5 ${
+                worthALook.length > 0 ? "bg-amber-50" : ""
+              }`}
+            >
+              <span
+                className={`font-mono text-4xl font-bold tabular-nums ${
+                  worthALook.length > 0 ? "text-amber-700" : "text-stone-300"
+                }`}
+              >
+                {worthALook.length}
+              </span>
+              <span className="text-sm font-medium text-stone-600">
+                meaningful change{worthALook.length === 1 ? "" : "s"}
+              </span>
             </div>
-            <div className="w-px bg-stone-200" />
-            <div>
-              <div className="font-mono text-3xl font-bold text-stone-400">{noChangeCount}</div>
-              <div className="text-sm text-stone-500">no meaningful change</div>
+            <div className="pb-1.5 text-xs text-stone-400">
+              {noChangeCount} no meaningful change{noChangeCount === 1 ? "" : "s"}
             </div>
           </div>
         </section>
