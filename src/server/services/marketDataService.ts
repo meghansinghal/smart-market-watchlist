@@ -80,6 +80,16 @@ export const marketDataService = {
    */
   async fetchObservation(symbol: string): Promise<MarketDataResult> {
     const now = new Date();
+    // Known, accepted race: scenario is read once here and not re-checked
+    // before the eventual save below. If a concurrent request resets the
+    // scenario in between, this write's `receivedAt` lands *after* that
+    // reset's `scenarioUpdatedAt`, so a later request's staleness check
+    // (below) would wrongly treat this stale-scenario data as current. This
+    // needs two near-simultaneous requests racing on the exact same symbol
+    // to matter — re-checking the scenario immediately before every save
+    // would close it, but adds a retry path for a window this unlikely at
+    // this app's actual (mostly single-user-driven) traffic. Documented as
+    // a deliberate tradeoff rather than left as an unexamined gap.
     const { provider, scenario, scenarioUpdatedAt } = await providerFor(symbol);
 
     // While the market is closed, the "current" price for a NORMAL_MARKET
@@ -164,9 +174,12 @@ export const marketDataService = {
       existing.length === days && wantedDays.every((d) => existingDates.has(dateKey(d)));
     if (haveFullCoverage) return existing;
 
-    const { provider } = await providerFor(symbol);
+    // Unlike fetchObservation, this doesn't go through providerFor: historical
+    // bars are always the plain deterministic walk regardless of any active
+    // demo scenario (getHistorical has no scenario parameter), so looking up
+    // the scenario here would just be a wasted lookup on every call.
     try {
-      const bars = await provider.getHistorical(symbol, days);
+      const bars = await syntheticProvider.getHistorical(symbol, days);
       if (bars.length > 0) {
         await historicalRepository.upsertMany(bars);
       }

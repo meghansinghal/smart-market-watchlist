@@ -18,14 +18,30 @@ let rows: Row[] = [];
 let nextId = 1;
 
 const marketObservation = {
+  // Sorts by observedAt desc, receivedAt desc — mirrors the real
+  // repository's `orderBy: [{ observedAt: "desc" }, { receivedAt: "desc" }]`
+  // exactly, rather than ignoring whatever orderBy is actually passed, so a
+  // test can genuinely catch a regression of the tiebreak (two rows sharing
+  // an identical observedAt, which happens whenever a demo scenario is
+  // applied and then reset on the same day).
   findFirst: vi.fn(async ({ where }: { where: { symbol: string } }) => {
     const matches = rows
       .filter((r) => r.symbol === where.symbol)
-      .sort((a, b) => b.observedAt.getTime() - a.observedAt.getTime());
+      .sort((a, b) => {
+        const byObservedAt = b.observedAt.getTime() - a.observedAt.getTime();
+        return byObservedAt !== 0 ? byObservedAt : b.receivedAt.getTime() - a.receivedAt.getTime();
+      });
     return matches[0] ?? null;
   }),
   create: vi.fn(async ({ data }: { data: Omit<Row, "id" | "receivedAt"> }) => {
-    const row: Row = { id: `obs-${nextId++}`, receivedAt: new Date(), ...data };
+    // A real `receivedAt: new Date()` here would risk two rows created in
+    // the same test landing on the identical millisecond, which would
+    // undermine the exact tiebreak test below for reasons that have
+    // nothing to do with the repository code being tested. An id-based
+    // offset guarantees each row's receivedAt is strictly later than the
+    // last, deterministically.
+    const id = nextId++;
+    const row: Row = { id: `obs-${id}`, receivedAt: new Date(id * 1000), ...data };
     rows.push(row);
     return row;
   }),
@@ -44,6 +60,28 @@ beforeEach(() => {
   rows = [];
   nextId = 1;
   vi.clearAllMocks();
+});
+
+describe("observationRepository.latestFor", () => {
+  it("picks the most recently *received* row when two share the exact same observedAt", async () => {
+    // Regression test: this happens for real whenever a demo scenario is
+    // applied and later reset on the same day — e.g. PRICE_SHOCK then back
+    // to NORMAL_MARKET both anchor to "today's close" (the same
+    // `observedAt`), differing only in price and in when each was written.
+    // Without a receivedAt tiebreak, a bare `orderBy: observedAt desc`
+    // leaves Postgres free to return either row.
+    await observationRepository.save(
+      { symbol: "INFY.NS", price: 1628.18, volume: 2000, observedAt: new Date("2026-09-04T10:00:00Z"), source: "SYNTHETIC" },
+      "CLOSED",
+    );
+    await observationRepository.save(
+      { symbol: "INFY.NS", price: 1494.62, volume: 1000, observedAt: new Date("2026-09-04T10:00:00Z"), source: "SYNTHETIC" },
+      "CLOSED",
+    );
+
+    const latest = await observationRepository.latestFor("INFY.NS");
+    expect(latest?.price).toBe(1494.62);
+  });
 });
 
 describe("observationRepository.saveIfNewer", () => {

@@ -31,11 +31,18 @@ export const observationRepository = {
   },
 
   /** Latest observation we have persisted for a symbol, regardless of
-   * freshness — this is the "latest valid cache" fallback rung. */
+   * freshness — this is the "latest valid cache" fallback rung.
+   *
+   * Ordered by `observedAt` first, `receivedAt` as a tiebreaker: multiple
+   * demo-scenario writes for the same symbol on the same day can share an
+   * identical `observedAt` (e.g. NORMAL_MARKET and PRICE_SHOCK both anchor
+   * to "today's close" — only the price differs), and without a
+   * deterministic tiebreak Postgres can return either one, not necessarily
+   * the one actually written most recently. */
   async latestFor(symbol: string): Promise<MarketObservation | null> {
     const row = await prisma.marketObservation.findFirst({
       where: { symbol },
-      orderBy: { observedAt: "desc" },
+      orderBy: [{ observedAt: "desc" }, { receivedAt: "desc" }],
     });
     return row ? toDomain(row) : null;
   },
@@ -52,7 +59,7 @@ export const observationRepository = {
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const latest = await tx.marketObservation.findFirst({
         where: { symbol: raw.symbol },
-        orderBy: { observedAt: "desc" },
+        orderBy: [{ observedAt: "desc" }, { receivedAt: "desc" }],
       });
       if (latest && latest.observedAt.getTime() > raw.observedAt.getTime()) {
         // We already have something newer; keep it as-is and just return it

@@ -136,7 +136,12 @@ access needed.
 2. Add a Postgres database (Vercel's Storage tab, or any hosted Postgres —
    Neon, Supabase, etc.) and make sure its connection string ends up in a
    `DATABASE_URL` environment variable on the project (that's the only
-   environment variable this app needs).
+   environment variable this app needs). Use a *pooled* connection string
+   if your provider offers one (Neon's does) — `src/lib/prisma.ts` caches
+   one client per warm serverless instance, which is correct and safe on
+   its own, but enough concurrent cold-started instances can still open
+   more direct Postgres connections than a small plan allows; a pooled
+   connection string is the standard fix.
 3. Deploy. `postinstall` runs `prisma generate`, and `vercel.json`'s
    `buildCommand` runs `prisma migrate deploy` before `next build`, so
    schema migrations apply automatically on every deploy — no manual
