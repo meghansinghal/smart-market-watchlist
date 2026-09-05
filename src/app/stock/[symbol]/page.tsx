@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 import useSWR from "swr";
 import { apiClient, ApiError } from "@/lib/apiClient";
+import { useCurrentUser } from "@/lib/CurrentUserContext";
 import { formatDate, formatObservationTimestamp, formatPct, formatPrice, formatVolume } from "@/lib/format";
 import { ClassificationBadge, FreshnessBadge } from "@/components/Badge";
 import { Evidence } from "@/components/Evidence";
@@ -13,12 +14,13 @@ import { PriceChart } from "@/components/PriceChart";
 export default function StockDetailPage() {
   const params = useParams<{ symbol: string }>();
   const symbol = decodeURIComponent(params.symbol);
+  const { userId } = useCurrentUser();
 
   const {
     data: detail,
     error: fetchError,
     isLoading,
-  } = useSWR(["stock", symbol], () => apiClient.getStock(symbol));
+  } = useSWR(userId ? ["stock", symbol, userId] : null, () => apiClient.getStock(userId!, symbol));
   const error = fetchError instanceof ApiError ? fetchError.message : fetchError ? "Couldn't load this stock." : null;
   const committedObservationId = useRef<string | null>(null);
   const pct = detail?.change?.pctChangeSinceCheckpoint ?? null;
@@ -26,11 +28,11 @@ export default function StockDetailPage() {
   useEffect(() => {
     const observationId = detail?.observation?.id;
     const dataStatus = detail?.change?.dataStatus;
-    if (!detail || !observationId || (dataStatus !== "OK" && dataStatus !== "NEW")) return;
+    if (!detail || !userId || !observationId || (dataStatus !== "OK" && dataStatus !== "NEW")) return;
     if (committedObservationId.current === observationId) return;
     committedObservationId.current = observationId;
-    apiClient.commitCheckpoints([{ symbol: detail.symbol, observationId }]).catch(() => {});
-  }, [detail]);
+    apiClient.commitCheckpoints(userId, [{ symbol: detail.symbol, observationId }]).catch(() => {});
+  }, [detail, userId]);
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-10 sm:px-6">

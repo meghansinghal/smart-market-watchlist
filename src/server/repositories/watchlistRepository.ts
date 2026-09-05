@@ -7,24 +7,24 @@ export interface WatchlistItemDTO {
 }
 
 export const watchlistRepository = {
-  async list(): Promise<WatchlistItemDTO[]> {
-    return prisma.watchlistItem.findMany({ orderBy: { addedAt: "asc" } });
+  async list(userId: string): Promise<WatchlistItemDTO[]> {
+    return prisma.watchlistItem.findMany({ where: { userId }, orderBy: { addedAt: "asc" } });
   },
 
-  async add(symbol: string): Promise<WatchlistItemDTO> {
+  async add(userId: string, symbol: string): Promise<WatchlistItemDTO> {
     return prisma.watchlistItem.upsert({
-      where: { symbol },
-      create: { symbol },
+      where: { userId_symbol: { userId, symbol } },
+      create: { userId, symbol },
       update: {},
     });
   },
 
-  async remove(symbol: string): Promise<void> {
-    await prisma.watchlistItem.deleteMany({ where: { symbol } });
+  async remove(userId: string, symbol: string): Promise<void> {
+    await prisma.watchlistItem.deleteMany({ where: { userId, symbol } });
   },
 
-  async exists(symbol: string): Promise<boolean> {
-    const row = await prisma.watchlistItem.findUnique({ where: { symbol } });
+  async exists(userId: string, symbol: string): Promise<boolean> {
+    const row = await prisma.watchlistItem.findUnique({ where: { userId_symbol: { userId, symbol } } });
     return row !== null;
   },
 };

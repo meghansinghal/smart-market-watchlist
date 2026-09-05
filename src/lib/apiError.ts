@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { UnknownUserError } from "@/lib/demoUser";
 import { InvalidSymbolError } from "@/server/services/watchlistService";
 
 /** Central error → HTTP response mapping so route handlers never silently
@@ -14,6 +15,9 @@ export function toErrorResponse(err: unknown): NextResponse {
   }
   if (err instanceof InvalidSymbolError) {
     return NextResponse.json({ error: "invalid_symbol", message: err.message }, { status: 400 });
+  }
+  if (err instanceof UnknownUserError) {
+    return NextResponse.json({ error: "unknown_user", message: err.message }, { status: 400 });
   }
   const message = err instanceof Error ? err.message : "Unexpected server error";
   console.error(err);

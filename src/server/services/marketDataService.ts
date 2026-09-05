@@ -54,10 +54,11 @@ export function classifyFreshness(observedAt: Date, now: Date): Freshness {
 async function providerFor(symbol: string): Promise<{
   provider: IMarketDataProvider;
   scenario: DemoScenario;
+  scenarioUpdatedAt: Date | null;
 }> {
-  const scenario = await demoScenarioRepository.get(symbol);
+  const { scenario, updatedAt } = await demoScenarioRepository.get(symbol);
   const useSynthetic = env.marketDataProvider === "synthetic" || scenario !== "NORMAL_MARKET";
-  return { provider: useSynthetic ? syntheticProvider : yahooProvider, scenario };
+  return { provider: useSynthetic ? syntheticProvider : yahooProvider, scenario, scenarioUpdatedAt: updatedAt };
 }
 
 export const marketDataService = {
@@ -68,17 +69,24 @@ export const marketDataService = {
    */
   async fetchObservation(symbol: string): Promise<MarketDataResult> {
     const now = new Date();
-    const { provider, scenario } = await providerFor(symbol);
+    const { provider, scenario, scenarioUpdatedAt } = await providerFor(symbol);
 
     // While the market is closed, the "current" price for a NORMAL_MARKET
     // symbol can't change until the next session — if we already hold
     // exactly that (this session's close), re-fetching would just ask the
     // provider (burning Yahoo's rate-limit budget in particular) for the
     // same number again. Demo-scenario overrides skip this: they're a
-    // deliberate request to regenerate, not organic market data.
+    // deliberate request to regenerate, not organic market data. And even
+    // when NORMAL_MARKET is the *current* scenario, the stored observation
+    // might predate a reset from an override (e.g. PRICE_SHOCK → back to
+    // normal) — reusing it would keep serving the override's price forever
+    // until the next session, so only reuse data that was actually
+    // received at or after this symbol's scenario last changed.
     if (scenario === "NORMAL_MARKET" && !isMarketLikelyOpen(now)) {
       const stored = await observationRepository.latestFor(symbol);
-      if (stored && classifyFreshness(stored.observedAt, now) === "CLOSED") {
+      const staleRelativeToScenario =
+        scenarioUpdatedAt !== null && stored !== null && stored.receivedAt < scenarioUpdatedAt;
+      if (stored && !staleRelativeToScenario && classifyFreshness(stored.observedAt, now) === "CLOSED") {
         return { ok: true, observation: { ...stored, freshness: "CLOSED" } };
       }
     }

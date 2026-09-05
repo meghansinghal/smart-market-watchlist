@@ -108,6 +108,12 @@ export interface WatchlistItemJSON {
   addedAt: string;
 }
 
+/** A seeded demo identity — not an account. See CurrentUserContext. */
+export interface UserJSON {
+  id: string;
+  name: string;
+}
+
 export interface DemoScenarioEntry {
   symbol: string;
   scenario: DemoScenario;

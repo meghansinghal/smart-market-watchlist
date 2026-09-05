@@ -16,23 +16,23 @@ function normalizeSymbol(raw: string): string {
 }
 
 export const watchlistService = {
-  async list(): Promise<WatchlistItemDTO[]> {
-    return watchlistRepository.list();
+  async list(userId: string): Promise<WatchlistItemDTO[]> {
+    return watchlistRepository.list(userId);
   },
 
-  /** Idempotent by design — adding a symbol already on the watchlist is a
-   * no-op rather than an error, so duplicate entries can't happen. */
-  async add(rawSymbol: string): Promise<WatchlistItemDTO> {
+  /** Idempotent by design — adding a symbol already on the user's watchlist
+   * is a no-op rather than an error, so duplicate entries can't happen. */
+  async add(userId: string, rawSymbol: string): Promise<WatchlistItemDTO> {
     const symbol = normalizeSymbol(rawSymbol);
-    return watchlistRepository.add(symbol);
+    return watchlistRepository.add(userId, symbol);
   },
 
-  async remove(rawSymbol: string): Promise<void> {
+  async remove(userId: string, rawSymbol: string): Promise<void> {
     const symbol = normalizeSymbol(rawSymbol);
-    await watchlistRepository.remove(symbol);
-    // The checkpoint is user-visit state for a symbol we're tracking; once
-    // removed, stale checkpoint data shouldn't linger and resurrect a
-    // misleading "change" if the symbol is ever re-added.
-    await checkpointRepository.remove(symbol);
+    await watchlistRepository.remove(userId, symbol);
+    // The checkpoint is this user's visit state for a symbol they were
+    // tracking; once removed, stale checkpoint data shouldn't linger and
+    // resurrect a misleading "change" if the symbol is ever re-added.
+    await checkpointRepository.remove(userId, symbol);
   },
 };

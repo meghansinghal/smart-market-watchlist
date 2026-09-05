@@ -53,10 +53,17 @@ async function getBenchmarkData(benchmarkSymbol: string) {
   return promise;
 }
 
-async function buildSymbolBrief(symbol: string): Promise<SymbolBrief> {
+/**
+ * Market data (observation, historical bars) is fetched exactly the same
+ * way regardless of which user is asking — it's shared/global, per the
+ * product design. Only the checkpoint comparison below is user-scoped, so
+ * two users watching the same symbol share one underlying fetch/cache but
+ * always see their own personal "what changed" result.
+ */
+async function buildSymbolBrief(userId: string, symbol: string): Promise<SymbolBrief> {
   const [obsResult, checkpoint, historicalBars] = await Promise.all([
     marketDataService.fetchObservation(symbol),
-    checkpointRepository.get(symbol),
+    checkpointRepository.get(userId, symbol),
     marketDataService.fetchHistorical(symbol, BASELINE_DAYS),
   ]);
 
@@ -95,14 +102,14 @@ export interface DashboardBrief {
 }
 
 export const marketBriefService = {
-  async getSymbolBrief(symbol: string): Promise<SymbolBrief> {
-    return buildSymbolBrief(symbol);
+  async getSymbolBrief(userId: string, symbol: string): Promise<SymbolBrief> {
+    return buildSymbolBrief(userId, symbol);
   },
 
-  async getDashboardBrief(): Promise<DashboardBrief> {
+  async getDashboardBrief(userId: string): Promise<DashboardBrief> {
     benchmarkCache.clear();
-    const watchlist = await watchlistRepository.list();
-    const items = await Promise.all(watchlist.map((w) => buildSymbolBrief(w.symbol)));
+    const watchlist = await watchlistRepository.list(userId);
+    const items = await Promise.all(watchlist.map((w) => buildSymbolBrief(userId, w.symbol)));
     return { generatedAt: new Date(), items };
   },
 };

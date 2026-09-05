@@ -21,27 +21,35 @@ function toDomain(row: {
   };
 }
 
+/**
+ * Every checkpoint belongs to exactly one user (composite key
+ * userId+symbol) — this is what makes "what changed since you last
+ * looked" personal per user rather than shared. The underlying
+ * MarketObservation being compared against is still the same for everyone;
+ * only the "what did I last see" side of the comparison is per-user.
+ */
 export const checkpointRepository = {
-  async get(symbol: string): Promise<Checkpoint | null> {
-    const row = await prisma.checkpoint.findUnique({ where: { symbol } });
+  async get(userId: string, symbol: string): Promise<Checkpoint | null> {
+    const row = await prisma.checkpoint.findUnique({ where: { userId_symbol: { userId, symbol } } });
     return row ? toDomain(row) : null;
   },
 
-  async getMany(symbols: string[]): Promise<Map<string, Checkpoint>> {
+  async getMany(userId: string, symbols: string[]): Promise<Map<string, Checkpoint>> {
     if (symbols.length === 0) return new Map();
-    const rows = await prisma.checkpoint.findMany({ where: { symbol: { in: symbols } } });
+    const rows = await prisma.checkpoint.findMany({ where: { userId, symbol: { in: symbols } } });
     return new Map(rows.map((r) => [r.symbol, toDomain(r)]));
   },
 
-  /** Set a symbol's checkpoint to a specific observation. Callers are
-   * responsible for only calling this with valid, non-stale data — the
-   * repository doesn't second-guess freshness itself, since "is this good
-   * enough to checkpoint" is a policy decision that belongs to the
-   * Checkpoint Service. */
-  async set(observation: MarketObservation): Promise<Checkpoint> {
+  /** Set a user's checkpoint for a symbol to a specific observation.
+   * Callers are responsible for only calling this with valid, non-stale
+   * data — the repository doesn't second-guess freshness itself, since "is
+   * this good enough to checkpoint" is a policy decision that belongs to
+   * the Checkpoint Service. */
+  async set(userId: string, observation: MarketObservation): Promise<Checkpoint> {
     const row = await prisma.checkpoint.upsert({
-      where: { symbol: observation.symbol },
+      where: { userId_symbol: { userId, symbol: observation.symbol } },
       create: {
+        userId,
         symbol: observation.symbol,
         price: observation.price,
         volume: observation.volume === null ? null : BigInt(observation.volume),
@@ -61,7 +69,7 @@ export const checkpointRepository = {
     return toDomain(row);
   },
 
-  async remove(symbol: string): Promise<void> {
-    await prisma.checkpoint.deleteMany({ where: { symbol } });
+  async remove(userId: string, symbol: string): Promise<void> {
+    await prisma.checkpoint.deleteMany({ where: { userId, symbol } });
   },
 };

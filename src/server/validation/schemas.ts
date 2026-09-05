@@ -1,10 +1,17 @@
 import { z } from "zod";
 
+// Not an auth token — just the id of the demo user the request is acting
+// as (see User Switcher). Required on every endpoint that reads or writes
+// per-user state (watchlist, checkpoints).
+export const userIdSchema = z.string().min(1);
+
 export const addWatchlistItemSchema = z.object({
+  userId: userIdSchema,
   symbol: z.string().trim().min(1).max(20),
 });
 
 export const commitCheckpointsSchema = z.object({
+  userId: userIdSchema,
   items: z
     .array(
       z.object({

@@ -1,6 +1,12 @@
 // Prisma schema for "What Did I Miss" — Smart Market Watchlist
-// Single-implicit-user application: there is no auth model. All watchlist
-// items, checkpoints and observations belong to the one household user.
+//
+// Multi-user, but deliberately NOT multi-tenant-with-auth: there is no
+// login, password, session, or OAuth anywhere in this app. `User` exists
+// purely to demonstrate isolated per-user state (a watchlist, a set of
+// checkpoints) via a plain, unauthenticated context switch in the UI — see
+// the User Switcher. Market data itself (MarketObservation, HistoricalBar)
+// stays global/shared: every user is looking at the same market, just
+// comparing it against their own last-seen checkpoint.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,12 +17,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// A symbol the user has chosen to track.
+/// A demo identity, not an account — no credentials, no session. Selecting
+/// one in the UI only changes which watchlist/checkpoints subsequent reads
+/// and writes are scoped to.
+model User {
+  id             String          @id @default(cuid())
+  name           String          @unique
+  createdAt      DateTime        @default(now())
+  watchlistItems WatchlistItem[]
+  checkpoints    Checkpoint[]
+}
+
+/// A symbol a specific user has chosen to track. The same symbol can
+/// appear on multiple users' watchlists independently.
 model WatchlistItem {
   id        String   @id @default(cuid())
-  symbol    String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol    String
   addedAt   DateTime @default(now())
 
+  @@unique([userId, symbol])
   @@index([symbol])
 }
 
@@ -73,17 +94,24 @@ model HistoricalBar {
   @@index([symbol, date(sort: Desc)])
 }
 
-/// "What the user last successfully saw." Updated only after the dashboard
-/// has been rendered with valid, non-stale data and the client has
-/// acknowledged it. One row per symbol.
+/// "What this user last successfully saw" for a symbol. Updated only after
+/// the dashboard has been rendered with valid, non-stale data and the
+/// client has acknowledged it. One row per (user, symbol) — every user
+/// maintains their own independent checkpoint against the same shared
+/// MarketObservation history, so Alice viewing TCS.NS never moves Bob's
+/// TCS.NS baseline.
 model Checkpoint {
-  symbol      String            @id
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol      String
   price       Float
   volume      BigInt?
   observedAt  DateTime
   source      ObservationSource
   freshness   Freshness
   checkedAt   DateTime          @default(now())
+
+  @@id([userId, symbol])
 }
 
 /// Which synthetic scenario a symbol is currently pinned to, for the demo

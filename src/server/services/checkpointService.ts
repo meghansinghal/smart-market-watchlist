@@ -19,10 +19,13 @@ export interface CommitOutcome {
  * fetched observations but never checkpoints them itself — the client
  * calls this only once the brief has actually been rendered, and even then
  * each observation is independently re-validated here (by id, against the
- * DB) before it's allowed to become the new "what the user last saw".
+ * DB) before it's allowed to become the new "what this user last saw".
+ * Every commit is scoped to a single userId — one user's commit can never
+ * touch another user's checkpoint row, since the underlying repository
+ * writes are keyed by (userId, symbol).
  */
 export const checkpointService = {
-  async commit(items: CommitRequestItem[]): Promise<CommitOutcome[]> {
+  async commit(userId: string, items: CommitRequestItem[]): Promise<CommitOutcome[]> {
     const now = new Date();
     const outcomes: CommitOutcome[] = [];
 
@@ -41,7 +44,7 @@ export const checkpointService = {
         });
         continue;
       }
-      await checkpointRepository.set(observation);
+      await checkpointRepository.set(userId, observation);
       outcomes.push({ symbol: item.symbol, committed: true });
     }
 

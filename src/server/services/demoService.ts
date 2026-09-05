@@ -3,8 +3,13 @@ import { demoScenarioRepository } from "@/server/repositories/demoScenarioReposi
 import { watchlistRepository } from "@/server/repositories/watchlistRepository";
 
 export const demoService = {
-  async listScenarios(): Promise<{ symbol: string; scenario: DemoScenario }[]> {
-    const watchlist = await watchlistRepository.list();
+  /** Scoped to the requesting user's own watchlist symbols — but the
+   * scenario override itself is still global/per-symbol (see setScenario),
+   * since it simulates the shared MarketObservation, not anything
+   * user-specific. Two users watching the same symbol always see the same
+   * forced scenario. */
+  async listScenarios(userId: string): Promise<{ symbol: string; scenario: DemoScenario }[]> {
+    const watchlist = await watchlistRepository.list(userId);
     const symbols = watchlist.map((w) => w.symbol);
     const scenarios = await demoScenarioRepository.getMany(symbols);
     return symbols.map((symbol) => ({

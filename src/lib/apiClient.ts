@@ -4,6 +4,7 @@ import type {
   DemoScenario,
   DemoScenarioEntry,
   StockDetailResponse,
+  UserJSON,
   WatchlistItemJSON,
 } from "@/lib/apiTypes";
 
@@ -26,27 +27,40 @@ async function request<T>(input: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+function withUserId(path: string, userId: string): string {
+  return `${path}${path.includes("?") ? "&" : "?"}userId=${encodeURIComponent(userId)}`;
+}
+
 export const apiClient = {
-  getDashboard: () => request<DashboardResponse>("/api/dashboard"),
+  getUsers: () => request<{ users: UserJSON[] }>("/api/users"),
 
-  getStock: (symbol: string) => request<StockDetailResponse>(`/api/stocks/${encodeURIComponent(symbol)}`),
+  getDashboard: (userId: string) => request<DashboardResponse>(withUserId("/api/dashboard", userId)),
 
-  addWatchlistItem: (symbol: string) =>
+  getStock: (userId: string, symbol: string) =>
+    request<StockDetailResponse>(withUserId(`/api/stocks/${encodeURIComponent(symbol)}`, userId)),
+
+  addWatchlistItem: (userId: string, symbol: string) =>
     request<{ item: WatchlistItemJSON }>("/api/watchlist", {
       method: "POST",
-      body: JSON.stringify({ symbol }),
+      body: JSON.stringify({ userId, symbol }),
     }),
 
-  removeWatchlistItem: (symbol: string) =>
-    request<{ ok: true }>(`/api/watchlist/${encodeURIComponent(symbol)}`, { method: "DELETE" }),
+  removeWatchlistItem: (userId: string, symbol: string) =>
+    request<{ ok: true }>(withUserId(`/api/watchlist/${encodeURIComponent(symbol)}`, userId), {
+      method: "DELETE",
+    }),
 
-  commitCheckpoints: (items: { symbol: string; observationId: string }[]) =>
+  commitCheckpoints: (userId: string, items: { symbol: string; observationId: string }[]) =>
     request<{ outcomes: unknown[] }>("/api/checkpoints/commit", {
       method: "POST",
-      body: JSON.stringify({ items }),
+      body: JSON.stringify({ userId, items }),
     }),
 
-  getDemoScenarios: () => request<{ scenarios: DemoScenarioEntry[] }>("/api/demo/scenarios"),
+  // Demo-scenario overrides are global (they simulate the shared market
+  // observation, not anything user-specific) — only the *listing* is
+  // scoped to the requesting user's own watchlist symbols.
+  getDemoScenarios: (userId: string) =>
+    request<{ scenarios: DemoScenarioEntry[] }>(withUserId("/api/demo/scenarios", userId)),
 
   setDemoScenario: (symbol: string, scenario: DemoScenario) =>
     request<{ ok: true }>("/api/demo/scenario", {

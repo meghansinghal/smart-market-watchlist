@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { apiClient, ApiError } from "@/lib/apiClient";
 
-export function AddSymbolForm({ onAdded }: { onAdded: () => void }) {
+export function AddSymbolForm({ userId, onAdded }: { userId: string; onAdded: () => void }) {
   const [symbol, setSymbol] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -14,7 +14,7 @@ export function AddSymbolForm({ onAdded }: { onAdded: () => void }) {
     setSubmitting(true);
     setError(null);
     try {
-      await apiClient.addWatchlistItem(symbol);
+      await apiClient.addWatchlistItem(userId, symbol);
       setSymbol("");
       onAdded();
     } catch (err) {

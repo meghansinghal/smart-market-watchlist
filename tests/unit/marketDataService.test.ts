@@ -11,7 +11,7 @@ const historicalRepositoryMock = {
   upsertMany: vi.fn(),
 };
 const demoScenarioRepositoryMock = {
-  get: vi.fn().mockResolvedValue("NORMAL_MARKET"),
+  get: vi.fn().mockResolvedValue({ scenario: "NORMAL_MARKET", updatedAt: null }),
 };
 
 const yahooGetObservation = vi.fn();
@@ -47,7 +47,7 @@ const { MarketDataError } = await import("@/server/providers/types");
 
 beforeEach(() => {
   vi.clearAllMocks();
-  demoScenarioRepositoryMock.get.mockResolvedValue("NORMAL_MARKET");
+  demoScenarioRepositoryMock.get.mockResolvedValue({ scenario: "NORMAL_MARKET", updatedAt: null });
   historicalRepositoryMock.getRecent.mockResolvedValue([]);
   // Pin "now" to a known in-market-hours instant (Friday, 11:30 IST) so
   // freshness classification — which depends on real market hours — is
@@ -137,7 +137,7 @@ describe("marketDataService.fetchObservation fallback chain", () => {
   });
 
   it("routes a symbol with an active demo scenario through the synthetic provider even in yahoo mode", async () => {
-    demoScenarioRepositoryMock.get.mockResolvedValueOnce("PRICE_SHOCK");
+    demoScenarioRepositoryMock.get.mockResolvedValueOnce({ scenario: "PRICE_SHOCK", updatedAt: new Date() });
     syntheticGetObservation.mockResolvedValueOnce({
       symbol: "INFY.NS",
       price: 1400,
@@ -159,7 +159,7 @@ describe("marketDataService.fetchObservation fallback chain", () => {
   });
 
   it("bypasses the newest-wins guard for an active demo scenario, so switching scenarios always takes effect", async () => {
-    demoScenarioRepositoryMock.get.mockResolvedValueOnce("STALE_DATA");
+    demoScenarioRepositoryMock.get.mockResolvedValueOnce({ scenario: "STALE_DATA", updatedAt: new Date() });
     syntheticGetObservation.mockResolvedValueOnce({
       symbol: "INFY.NS",
       price: 1400,
@@ -205,6 +205,48 @@ describe("marketDataService.fetchObservation fallback chain", () => {
     }
   });
 
+  it("still calls the provider when the market is closed but stored data predates a scenario reset back to normal", async () => {
+    // Regression test: a demo scenario override (e.g. PRICE_SHOCK) writes
+    // a row via observationRepository.save. If the scenario is later reset
+    // to NORMAL_MARKET while the market stays closed, the closed-market
+    // skip must not keep reusing that override-tainted row forever — it
+    // should notice the row predates the reset and fetch fresh.
+    vi.setSystemTime(new Date("2026-09-04T12:00:00Z"));
+    demoScenarioRepositoryMock.get.mockResolvedValueOnce({
+      scenario: "NORMAL_MARKET",
+      updatedAt: new Date("2026-09-04T11:00:00Z"), // reset happened after the cached row below
+    });
+    observationRepositoryMock.latestFor.mockResolvedValueOnce({
+      id: "obs-shocked",
+      symbol: "INFY.NS",
+      price: 1628.18, // the shocked price, still on record from before the reset
+      volume: 5_000_000,
+      observedAt: new Date("2026-09-04T09:45:00Z"),
+      receivedAt: new Date("2026-09-04T10:00:00Z"), // before scenarioUpdatedAt
+      source: "SYNTHETIC",
+      freshness: "CLOSED",
+    });
+    yahooGetObservation.mockResolvedValueOnce({
+      symbol: "INFY.NS",
+      price: 1494.62, // the genuine normal price
+      volume: 8_000_000,
+      observedAt: new Date("2026-09-04T09:45:00Z"),
+      source: "YAHOO",
+    });
+    observationRepositoryMock.saveIfNewer.mockImplementationOnce(async (raw, freshness) => ({
+      id: "obs-fresh",
+      ...raw,
+      receivedAt: new Date(),
+      freshness,
+    }));
+
+    const result = await marketDataService.fetchObservation("INFY.NS");
+
+    expect(yahooGetObservation).toHaveBeenCalledOnce();
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.observation.price).toBe(1494.62);
+  });
+
   it("still calls the provider when the market is closed but stored data predates the most recent session", async () => {
     vi.setSystemTime(new Date("2026-09-04T12:00:00Z"));
     observationRepositoryMock.latestFor.mockResolvedValueOnce({
@@ -239,7 +281,7 @@ describe("marketDataService.fetchObservation fallback chain", () => {
 
   it("does not apply the closed-market skip to an active demo scenario override", async () => {
     vi.setSystemTime(new Date("2026-09-04T12:00:00Z"));
-    demoScenarioRepositoryMock.get.mockResolvedValueOnce("PRICE_SHOCK");
+    demoScenarioRepositoryMock.get.mockResolvedValueOnce({ scenario: "PRICE_SHOCK", updatedAt: new Date() });
     observationRepositoryMock.latestFor.mockResolvedValueOnce({
       id: "obs-close",
       symbol: "INFY.NS",

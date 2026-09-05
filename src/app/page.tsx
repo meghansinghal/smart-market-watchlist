@@ -3,33 +3,45 @@
 import { useEffect, useRef } from "react";
 import useSWR from "swr";
 import { apiClient, ApiError } from "@/lib/apiClient";
+import { useCurrentUser } from "@/lib/CurrentUserContext";
 import { formatRelativeTime } from "@/lib/format";
 import { AddSymbolForm } from "@/components/AddSymbolForm";
 import { StockCard } from "@/components/StockCard";
 import { CompactStockRow } from "@/components/CompactStockRow";
 import { DemoModePanel } from "@/components/DemoModePanel";
+import { UserSwitcher } from "@/components/UserSwitcher";
 
 export default function Home() {
+  const { userId, setUserId } = useCurrentUser();
+  // CurrentUserProvider already defaults userId to the first seeded user
+  // once the list loads — this fetch just supplies the switcher's options
+  // (SWR dedupes it against the context's own "users" fetch).
+  const { data: usersData } = useSWR("users", apiClient.getUsers);
+  const users = usersData?.users ?? [];
+
+  // Every user-scoped fetch is keyed by userId, so switching users is just
+  // a normal SWR cache-key change — it refetches and re-renders that
+  // user's watchlist and "since your last visit" state immediately.
   const {
     data: dashboard,
     error: dashboardError,
     isLoading,
     mutate: refetchDashboard,
-  } = useSWR("dashboard", apiClient.getDashboard);
+  } = useSWR(userId ? ["dashboard", userId] : null, () => apiClient.getDashboard(userId!));
   const { data: scenariosData, mutate: refetchScenarios } = useSWR(
-    "demo-scenarios",
-    apiClient.getDemoScenarios,
+    userId ? ["demo-scenarios", userId] : null,
+    () => apiClient.getDemoScenarios(userId!),
   );
   const scenarios = new Map((scenariosData?.scenarios ?? []).map((s) => [s.symbol, s.scenario]));
 
   const committedGeneratedAt = useRef<string | null>(null);
 
   // Once the dashboard has actually been rendered with a fresh brief, tell
-  // the server "the user has now seen this" so next visit's comparison
+  // the server "this user has now seen this" so next visit's comparison
   // baseline moves forward. Guarded so a given brief is only acknowledged
   // once, even across dev double-effects or re-fetches of the same data.
   useEffect(() => {
-    if (!dashboard || committedGeneratedAt.current === dashboard.generatedAt) return;
+    if (!dashboard || !userId || committedGeneratedAt.current === dashboard.generatedAt) return;
     committedGeneratedAt.current = dashboard.generatedAt;
     // "OK" means we compared against a prior checkpoint; "NEW" means this
     // symbol has none yet. Both are checkpoint-worthy — NEW is exactly how
@@ -41,11 +53,11 @@ export default function Home() {
       )
       .map((item) => ({ symbol: item.symbol, observationId: item.observation!.id }));
     if (items.length > 0) {
-      apiClient.commitCheckpoints(items).catch(() => {
+      apiClient.commitCheckpoints(userId, items).catch(() => {
         // Best-effort acknowledgement; next load will retry naturally.
       });
     }
-  }, [dashboard]);
+  }, [dashboard, userId]);
 
   function refetchAll() {
     refetchDashboard();
@@ -53,10 +65,14 @@ export default function Home() {
   }
 
   async function handleRemove(symbol: string) {
+    if (!userId) return;
     // Only reachable once a card/row is rendered, i.e. dashboard is loaded.
-    await refetchDashboard(apiClient.removeWatchlistItem(symbol).then(() => apiClient.getDashboard()), {
-      optimisticData: (prev) => ({ ...prev!, items: prev!.items.filter((i) => i.symbol !== symbol) }),
-    });
+    await refetchDashboard(
+      apiClient.removeWatchlistItem(userId, symbol).then(() => apiClient.getDashboard(userId)),
+      {
+        optimisticData: (prev) => ({ ...prev!, items: prev!.items.filter((i) => i.symbol !== symbol) }),
+      },
+    );
   }
 
   async function handleResetDemo() {
@@ -87,20 +103,23 @@ export default function Home() {
             Your watchlist, filtered down to what actually changed since you last looked.
           </p>
         </div>
-        {dashboard && (
-          <span
-            className={`mt-1 inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-              dashboard.marketOpen
-                ? "bg-green-50 text-green-700 ring-1 ring-inset ring-green-200"
-                : "bg-stone-100 text-stone-500 ring-1 ring-inset ring-stone-200"
-            }`}
-          >
+        <div className="mt-1 flex shrink-0 flex-col items-end gap-2">
+          <UserSwitcher users={users} currentUserId={userId} onChange={setUserId} />
+          {dashboard && (
             <span
-              className={`h-1.5 w-1.5 rounded-full ${dashboard.marketOpen ? "bg-green-500" : "bg-stone-400"}`}
-            />
-            Market {dashboard.marketOpen ? "open" : "closed"}
-          </span>
-        )}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+                dashboard.marketOpen
+                  ? "bg-green-50 text-green-700 ring-1 ring-inset ring-green-200"
+                  : "bg-stone-100 text-stone-500 ring-1 ring-inset ring-stone-200"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${dashboard.marketOpen ? "bg-green-500" : "bg-stone-400"}`}
+              />
+              Market {dashboard.marketOpen ? "open" : "closed"}
+            </span>
+          )}
+        </div>
       </header>
 
       {isLoading && <p className="text-sm text-stone-500">Loading your watchlist…</p>}
@@ -160,7 +179,7 @@ export default function Home() {
         </section>
       )}
 
-      <AddSymbolForm onAdded={refetchAll} />
+      {userId && <AddSymbolForm userId={userId} onAdded={refetchAll} />}
 
       {dashboard && (
         <DemoModePanel
