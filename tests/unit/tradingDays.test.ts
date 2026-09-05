@@ -3,9 +3,14 @@ import {
   atMarketClose,
   atMarketOpen,
   isMarketLikelyOpen,
+  lastNTradingDays,
   mostRecentMarketClose,
   mostRecentTradingDay,
 } from "@/server/domain/tradingDays";
+
+// 2026-01-26 (Republic Day) is a verified NSE trading holiday, and falls
+// on a Monday — a weekday that would otherwise look like a normal
+// trading day, making it a good probe for holiday-awareness.
 
 // All times below are anchored to real weekdays/weekends so the
 // weekend-skipping logic is actually exercised.
@@ -23,6 +28,34 @@ describe("isMarketLikelyOpen", () => {
 
   it("is closed on weekends regardless of time of day", () => {
     expect(isMarketLikelyOpen(new Date("2026-09-06T05:00:00Z"))).toBe(false); // Sunday
+  });
+
+  it("is closed on an NSE trading holiday even during normal session hours on a weekday", () => {
+    expect(isMarketLikelyOpen(new Date("2026-01-26T05:00:00Z"))).toBe(false); // Republic Day, 10:30 IST
+  });
+});
+
+describe("holiday awareness", () => {
+  it("mostRecentTradingDay skips a holiday back to the prior trading day", () => {
+    const preMarketOnHoliday = new Date("2026-01-26T02:00:00Z"); // 07:30 IST, before that day's would-be open
+    expect(mostRecentTradingDay(preMarketOnHoliday).toISOString().slice(0, 10)).toBe("2026-01-23");
+  });
+
+  it("mostRecentMarketClose skips a holiday back to the prior trading day's close", () => {
+    const afterHoursOnHoliday = new Date("2026-01-26T12:00:00Z"); // 17:30 IST
+    expect(mostRecentMarketClose(afterHoursOnHoliday).getTime()).toBe(
+      atMarketClose(new Date("2026-01-23")).getTime(),
+    );
+  });
+
+  it("lastNTradingDays excludes a holiday that falls within the window", () => {
+    // asOf = Thu Jan 29; walking back: Wed 28, Tue 27, [Mon 26 = holiday,
+    // Sun 25, Sat 24 skipped], Fri 23, Thu 22, Wed 21.
+    const days = lastNTradingDays(new Date("2026-01-29T05:00:00Z"), 5).map((d) =>
+      d.toISOString().slice(0, 10),
+    );
+    expect(days).not.toContain("2026-01-26");
+    expect(days).toEqual(["2026-01-21", "2026-01-22", "2026-01-23", "2026-01-27", "2026-01-28"]);
   });
 });
 

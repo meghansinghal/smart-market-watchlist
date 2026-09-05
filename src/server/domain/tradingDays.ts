@@ -1,10 +1,15 @@
-/** Trading-day helpers. We treat any non-Saturday/Sunday as a trading day —
- * good enough for a demo; a real system would consult an exchange calendar
- * for holidays. */
+/** Trading-day helpers: weekends plus NSE's published holiday calendar
+ * (see nseHolidays.ts) count as non-trading days. */
+
+import { isNseHoliday } from "@/server/domain/nseHolidays";
 
 function isWeekend(date: Date): boolean {
   const day = date.getUTCDay();
   return day === 0 || day === 6;
+}
+
+function isNonTradingDay(date: Date): boolean {
+  return isWeekend(date) || isNseHoliday(date);
 }
 
 /** Midnight-UTC date one calendar day before `date`. */
@@ -47,11 +52,11 @@ export function atMarketClose(date: Date): Date {
  * a whole session's worth of updates" while the market is closed. */
 export function mostRecentTradingDay(now: Date): Date {
   const today = toUtcMidnight(now);
-  if (!isWeekend(today) && now.getTime() >= atMarketOpen(today).getTime()) {
+  if (!isNonTradingDay(today) && now.getTime() >= atMarketOpen(today).getTime()) {
     return today;
   }
   let candidate = previousDay(today);
-  while (isWeekend(candidate)) candidate = previousDay(candidate);
+  while (isNonTradingDay(candidate)) candidate = previousDay(candidate);
   return candidate;
 }
 
@@ -60,11 +65,11 @@ export function mostRecentTradingDay(now: Date): Date {
  * this is the previous trading day's close. */
 export function mostRecentMarketClose(now: Date): Date {
   const today = toUtcMidnight(now);
-  if (!isWeekend(today) && now.getTime() >= atMarketClose(today).getTime()) {
+  if (!isNonTradingDay(today) && now.getTime() >= atMarketClose(today).getTime()) {
     return atMarketClose(today);
   }
   let candidate = previousDay(today);
-  while (isWeekend(candidate)) candidate = previousDay(candidate);
+  while (isNonTradingDay(candidate)) candidate = previousDay(candidate);
   return atMarketClose(candidate);
 }
 
@@ -78,7 +83,7 @@ export function lastNTradingDays(asOf: Date, n: number): Date[] {
   );
   cursor = previousDay(cursor);
   while (days.length < n) {
-    if (!isWeekend(cursor)) {
+    if (!isNonTradingDay(cursor)) {
       days.push(new Date(cursor));
     }
     cursor = previousDay(cursor);
@@ -87,7 +92,7 @@ export function lastNTradingDays(asOf: Date, n: number): Date[] {
 }
 
 export function isMarketLikelyOpen(now: Date): boolean {
-  if (isWeekend(now)) return false;
+  if (isNonTradingDay(now)) return false;
   // NSE cash session: 09:15–15:30 IST (IST = UTC+5:30).
   const istMinutes =
     ((now.getUTCHours() * 60 + now.getUTCMinutes() + 5 * 60 + 30) % (24 * 60));
