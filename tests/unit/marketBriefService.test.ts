@@ -28,15 +28,15 @@ function observation(overrides: Partial<MarketObservation> = {}): MarketObservat
   };
 }
 
-function checkpoint(price: number): Checkpoint {
+function checkpoint(price: number, observedAt = new Date("2026-09-03T10:00:00Z")): Checkpoint {
   return {
     symbol: "TCS.NS",
     price,
     volume: 5_000_000,
-    observedAt: new Date("2026-09-03T10:00:00Z"),
+    observedAt,
     source: "SYNTHETIC",
     freshness: "CLOSED",
-    checkedAt: new Date("2026-09-03T10:00:00Z"),
+    checkedAt: observedAt,
   };
 }
 
@@ -79,5 +79,21 @@ describe("marketBriefService — per-user checkpoint isolation over shared marke
     expect(aliceBrief.change?.pctChangeSinceCheckpoint).toBe(0);
     expect(aliceBrief.change?.classification).toBe("NORMAL");
     expect(bobBrief.change?.classification).toBe("SIGNIFICANT");
+  });
+});
+
+describe("marketBriefService — benchmark divergence time-window alignment", () => {
+  it("treats the benchmark as unavailable rather than comparing mismatched windows, when the checkpoint predates the whole benchmark history window", async () => {
+    // The mocked benchmark history only covers 2026-08-10..08-29 — a
+    // checkpoint from months earlier has no bar at or before it, so
+    // divergence must be dropped, not silently anchored to the oldest bar
+    // we happen to have (which would compare the stock's true multi-month
+    // move against only ~20 days of benchmark move).
+    checkpointGet.mockResolvedValue(checkpoint(4300, new Date("2026-07-01T10:00:00Z")));
+
+    const brief = await marketBriefService.getSymbolBrief("user-with-stale-checkpoint", "TCS.NS");
+
+    expect(brief.change?.scores?.divergenceScore).toBe(0);
+    expect(brief.change?.reasons).toContain("HISTORICAL_CONTEXT_UNAVAILABLE");
   });
 });

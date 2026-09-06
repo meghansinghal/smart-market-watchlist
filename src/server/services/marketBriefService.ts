@@ -13,18 +13,20 @@ function averageVolume(bars: HistoricalBar[]): number | null {
   return volumes.reduce((a, b) => a + b, 0) / volumes.length;
 }
 
-/** Closest historical bar at or before `date`; falls back to the oldest
- * available bar if `date` predates our whole history window rather than
- * fabricating a number. */
+/** Closest historical bar at or before `date`; returns null if `date`
+ * predates our whole history window (checkpoints never expire, so a
+ * checkpoint can be older than the fixed benchmark lookback) — comparing
+ * against the oldest bar we happen to have would silently measure the
+ * stock's true checkpoint-to-now window against a much shorter,
+ * misaligned benchmark window instead of leaving divergence unavailable. */
 function closestBarOnOrBefore(bars: HistoricalBar[], date: Date): HistoricalBar | null {
-  if (bars.length === 0) return null;
   let best: HistoricalBar | null = null;
   for (const bar of bars) {
     if (bar.date.getTime() <= date.getTime()) {
       if (!best || bar.date.getTime() > best.date.getTime()) best = bar;
     }
   }
-  return best ?? bars[0];
+  return best;
 }
 
 export interface SymbolBrief {
