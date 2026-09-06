@@ -13,8 +13,16 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Migrations (`prisma migrate deploy`) need a direct connection: they
+  // take a Postgres advisory lock, which a pooled/PgBouncer connection
+  // (transaction mode) can't reliably hold across statements. DATABASE_URL
+  // stays pooled for the running app; DIRECT_URL should be Neon's
+  // unpooled connection string, used only for migrations. Locally
+  // (docker-compose Postgres has no pooling), it's fine for both to be
+  // identical.
+  directUrl = env("DIRECT_URL")
 }
 
 /// A demo identity, not an account — no credentials, no session. Selecting

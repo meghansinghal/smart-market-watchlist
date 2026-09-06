@@ -26,6 +26,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://whatdidimiss:whatdidimiss@db:5432/whatdidimiss
+      DIRECT_URL: postgresql://whatdidimiss:whatdidimiss@db:5432/whatdidimiss
       NODE_ENV: production
     ports:
       - "3000:3000"

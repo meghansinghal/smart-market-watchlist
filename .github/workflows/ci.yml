@@ -25,6 +25,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://whatdidimiss:whatdidimiss@localhost:5432/whatdidimiss
+      DIRECT_URL: postgresql://whatdidimiss:whatdidimiss@localhost:5432/whatdidimiss
 
     steps:
       - uses: actions/checkout@v4
