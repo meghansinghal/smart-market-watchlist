@@ -55,6 +55,11 @@ export function MarketSimulationModal({ onClose }: { onClose: () => void }) {
               Preview how the market brief responds to different market
               conditions.
             </p>
+            <p className="mt-1 text-xs text-stone-400">
+              Market data is shared: forcing a scenario changes what every
+              user sees for this symbol. Only your classification of that
+              move stays personal.
+            </p>
           </div>
           <button
             onClick={onClose}
