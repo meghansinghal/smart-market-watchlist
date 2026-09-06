@@ -327,23 +327,23 @@ describe("classifyFreshness", () => {
 
   it("is LIVE for a recent observation from a real provider while the market is open", () => {
     const observedAt = new Date(marketOpen.getTime() - 5 * 60 * 1000);
-    expect(classifyFreshness(observedAt, marketOpen, "YAHOO")).toBe("LIVE");
+    expect(classifyFreshness(observedAt, marketOpen, "EXTERNAL")).toBe("LIVE");
   });
 
   it("is DELAYED for an older-but-same-session observation from a real provider while the market is open", () => {
     const observedAt = new Date(marketOpen.getTime() - 60 * 60 * 1000);
-    expect(classifyFreshness(observedAt, marketOpen, "YAHOO")).toBe("DELAYED");
+    expect(classifyFreshness(observedAt, marketOpen, "EXTERNAL")).toBe("DELAYED");
   });
 
   it("is STALE if a real provider's data hasn't updated in hours while the market is open", () => {
     const observedAt = new Date(marketOpen.getTime() - 7 * 60 * 60 * 1000);
-    expect(classifyFreshness(observedAt, marketOpen, "YAHOO")).toBe("STALE");
+    expect(classifyFreshness(observedAt, marketOpen, "EXTERNAL")).toBe("STALE");
   });
 
   it("is never LIVE once the market has closed, even for a very recent timestamp", () => {
     const observedAt = new Date(marketClosedAfterHours.getTime() - 2 * 60 * 1000);
-    expect(classifyFreshness(observedAt, marketClosedAfterHours, "YAHOO")).not.toBe("LIVE");
-    expect(classifyFreshness(observedAt, marketClosedAfterHours, "YAHOO")).toBe("CLOSED");
+    expect(classifyFreshness(observedAt, marketClosedAfterHours, "EXTERNAL")).not.toBe("LIVE");
+    expect(classifyFreshness(observedAt, marketClosedAfterHours, "EXTERNAL")).toBe("CLOSED");
   });
 
   it("labels today's close as CLOSED right after the market closes", () => {

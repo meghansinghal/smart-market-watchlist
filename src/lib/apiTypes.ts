@@ -5,7 +5,7 @@
  * need to reason about serialization.
  */
 
-export type ObservationSource = "YAHOO" | "SYNTHETIC" | "STATIC_SNAPSHOT";
+export type ObservationSource = "EXTERNAL" | "SYNTHETIC" | "STATIC_SNAPSHOT";
 export type Freshness = "LIVE" | "DELAYED" | "CLOSED" | "STALE" | "CACHED" | "STATIC" | "UNAVAILABLE";
 export type ChangeClassification = "NORMAL" | "NOTABLE" | "SIGNIFICANT";
 export type DataStatus = "OK" | "LIMITED" | "UNAVAILABLE" | "NEW";

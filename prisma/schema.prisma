@@ -42,16 +42,18 @@ model WatchlistItem {
 }
 
 /// Source of a market observation — where the number actually came from.
+/// EXTERNAL is reserved for a future real market-data provider (not wired
+/// up yet — see IMarketDataProvider); only SYNTHETIC is produced today.
 enum ObservationSource {
-  YAHOO
+  EXTERNAL
   SYNTHETIC
   STATIC_SNAPSHOT
 }
 
 /// How trustworthy/current an observation is. This is orthogonal to
 /// `source`: a LIVE observation and a CACHED observation can both have
-/// originally come from YAHOO, but freshness tells the UI (and the change
-/// engine) whether it's safe to treat the number as "right now".
+/// originally come from an EXTERNAL provider, but freshness tells the UI
+/// (and the change engine) whether it's safe to treat the number as "right now".
 enum Freshness {
   LIVE
   DELAYED
