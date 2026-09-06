@@ -3,8 +3,9 @@ import type { DemoScenario, HistoricalBar, RawObservation } from "@/server/domai
 /**
  * Everything the rest of the app knows about market data providers. Business
  * logic (Market Data Service, Change Engine) depends only on this interface,
- * never on Yahoo or any other concrete vendor — that's what lets us swap in
- * a synthetic provider for demos/tests without touching anything else.
+ * never on a concrete vendor — that's what lets the synthetic provider serve
+ * as the sole real implementation today, with a genuine external provider
+ * pluggable behind the same interface later without touching anything else.
  */
 export interface IMarketDataProvider {
   /** Latest quote for a symbol. Throws MarketDataError on any failure. */

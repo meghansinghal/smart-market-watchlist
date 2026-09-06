@@ -128,8 +128,8 @@ model Checkpoint {
 /// Simulation — testing/exploration infrastructure (see demoService), not
 /// a presenter-only mode. Independent of the globally configured market
 /// data provider — activating a scenario always routes that symbol
-/// through the synthetic provider so simulations work even when the app
-/// is otherwise wired to Yahoo.
+/// through the synthetic provider so simulations keep working even if a
+/// real external provider is wired in later alongside it.
 enum DemoScenario {
   NORMAL_MARKET
   PRICE_SHOCK
